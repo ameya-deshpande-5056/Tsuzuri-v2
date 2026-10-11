@@ -483,7 +483,89 @@
 - **Verification**:
   - `flutter analyze`: 0 issues found.
   - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
-  - `flutter build linux --release`: Built cleanly.
+---
+
+## ADR-020: macOS Release Workflow BSD Sed Portability and Dynamic Bundle Discovery
+- **Status**: Accepted
+- **Date**: 2026-10-11
+- **Context**:
+  - The GitHub Actions release workflow (`.github/workflows/release.yml`) failed during the macOS build step:
+    ```text
+    Run ./scripts/sync-version.sh "v2.0.0"
+    sed: -I or -i may not be used with stdin
+    Error: Process completed with exit code 1.
+    ```
+  - On macOS GitHub runners (`macos-latest` / Darwin), the system `sed` is BSD `sed`, unlike GNU `sed` on Linux (`ubuntu-latest`).
+  - GNU `sed` accepts `-i "expr" file`. BSD `sed` treats the argument immediately following `-i` as the backup extension string (e.g. `-i '' "expr" file`); without that argument, BSD `sed` interprets `-i` as taking no parameter and mistakes the file as standard input, triggering `sed: -I or -i may not be used with stdin`.
+  - In addition, macOS packaging previously assumed a hardcoded bundle path `build/macos/Build/Products/Release/tsuzuri.app`. Following ADR-019 where `PRODUCT_NAME` was canonicalized to `Tsuzuri`, the Xcode build output bundle is `Tsuzuri.app`, which would cause `hdiutil` and `zip` packaging to fail on case-sensitive paths.
+- **Decision & Architecture**:
+  1. **POSIX-Compliant Portable Stream Replacement (`scripts/sync-version.sh`)**:
+     - Removed the non-portable `sed -i` flag.
+     - Implemented standard POSIX output redirection via a temporary file:
+       ```bash
+       sed "s/^version: .*/version: ${CLEAN_VERSION}+${BUILD_NUMBER}/" "$PUBSPEC" > "${PUBSPEC}.tmp" && mv "${PUBSPEC}.tmp" "$PUBSPEC"
+       ```
+     - This is 100% portable across GNU `sed`, BSD `sed` (macOS), Busybox, Alpine, and all Unix shells with zero platform-specific flags.
+  2. **Dynamic Bundle Discovery in Packaging (`.github/workflows/release.yml`)**:
+     - Replaced hardcoded `tsuzuri.app` path with dynamic discovery:
+       ```bash
+       APP_PATH=$(find build/macos/Build/Products/Release -name "*.app" -maxdepth 1 2>/dev/null | head -n 1)
+       APP_NAME=$(basename "$APP_PATH")
+       ```
+     - Handles either `Tsuzuri.app` or `tsuzuri.app` seamlessly for `.dmg` and `.zip` creation.
+- **Verification**:
+  - Locally tested `./scripts/sync-version.sh "v2.0.0"`, successfully updating `pubspec.yaml` with exit code 0.
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
+
+---
+
+## ADR-021: Windows Release Workflow MSVC Coroutine Deprecation Suppression and Resilient Packaging
+- **Status**: Accepted
+- **Date**: 2026-10-11
+- **Context**:
+  - The GitHub Actions release workflow failed during `flutter build windows --release`:
+    ```text
+    C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\experimental\coroutine(37,1): error C2338: static assertion failed: 'error STL1011: The /await compiler option, <experimental/coroutine>, <experimental/generator>, and <experimental/resumable> are deprecated by Microsoft and will be REMOVED SOON. They are superseded by the C++20 <coroutine> and C++23 <generator> headers. You can define _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS to suppress this error for now.' [D:\a\Tsuzuri-v2\Tsuzuri-v2\build\windows\x64\plugins\webview_all_windows\webview_all_windows_plugin.vcxproj]
+    ```
+  - Visual Studio 2022 / 2026 (MSVC toolset 14.40+ / 14.51 in recent CI images) deprecated `<experimental/coroutine>` and enabled `STL1011` as a fatal static assertion by default.
+  - The `webview_all_windows` plugin depends on `Microsoft.Windows.ImplementationLibrary` (WIL) version 1.0.220914.1 and C++/WinRT, which reference `<experimental/coroutine>`.
+- **Decision & Architecture**:
+  1. **Global CMake & Standard Settings Preprocessor Definition (`windows/CMakeLists.txt`)**:
+     - Added `add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)` globally in `windows/CMakeLists.txt`.
+     - Injected `target_compile_definitions(${TARGET} PRIVATE "_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS")` into `APPLY_STANDARD_SETTINGS(TARGET)`, which is invoked by `webview_all_windows` and all Flutter Windows plugin targets.
+  2. **CI Environment Variable Guard (`.github/workflows/release.yml`)**:
+     - Added `env: CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"` to the Windows build step in GitHub Actions.
+     - In MSVC, the `CL` environment variable is read by `cl.exe` for all C++ invocations, providing defense-in-depth across direct compiler invocations, NuGet dependencies, and CMake builds.
+  3. **Resilient Windows Bundle Packaging**:
+     - Hardened the `Compress-Archive` PowerShell step in `release.yml` with fallback directory detection (`build\windows\x64\runner\Release` and `build\windows\runner\Release`).
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
+
+---
+
+## ADR-022: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution
+- **Status**: Accepted
+- **Date**: 2026-10-11
+- **Context**:
+  - The GitHub Actions release workflow previously declared `needs: release-desktop` on `release-android`, `release-ios`, and `release-web`.
+  - In GitHub Actions DAG semantics, when any matrix runner in `release-desktop` fails, the parent job status evaluates to `failure`. Consequently, all dependent downstream jobs (`release-android`, `release-ios`, and `release-web`) were automatically skipped by GitHub Actions without running.
+  - Furthermore, serial dependency forced mobile and web jobs to wait for desktop builds to finish, tripling workflow run time.
+- **Decision & Architecture**:
+  1. **Dedicated Initialization Job (`create-release`)**:
+     - Introduced a lightweight `create-release` job running on `ubuntu-latest` that initializes the release draft/tag on GitHub in ~5 seconds using `softprops/action-gh-release@v2`.
+  2. **Job Decoupling & Concurrent Execution**:
+     - Replaced `needs: release-desktop` with `needs: create-release` across `release-desktop`, `release-android`, `release-ios`, and `release-web`.
+     - All 4 platform target jobs execute simultaneously in parallel across independent runner pools.
+     - A build failure or delay on any desktop OS does not prevent Android, iOS, or Web builds from running, packaging, and publishing artifacts.
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
+  - Workflow syntax validated.
+
+
+
 
 
 

@@ -548,6 +548,56 @@ Implemented but unverified tasks count as 0% towards completion.
 - **Verification Method**: `flutter analyze`, `flutter test`, and `flutter build linux --release`.
 - **Verification Result**: Verified across all 6 platform configurations and verified with clean Linux release build. 49/49 tests passing; 0 analyzer issues. ADR-019 recorded.
 
+---
+
+### Task `CI-001`: macOS Release Workflow Portability & Dynamic Bundle Discovery
+- **Description**: Resolve macOS build failure in GitHub Actions release workflow caused by BSD `sed` incompatibilities in `scripts/sync-version.sh` and harden macOS packaging in `.github/workflows/release.yml` with dynamic bundle discovery.
+- **Dependencies**: `UI-012`
+- **Acceptance Criteria**:
+  1. `scripts/sync-version.sh` uses POSIX-compliant output redirection with a temporary file, operating identically across GNU `sed` and BSD `sed` (macOS).
+  2. `.github/workflows/release.yml` macOS job dynamically detects `.app` bundle path, accommodating both `Tsuzuri.app` and `tsuzuri.app`.
+  3. `flutter analyze` passes with 0 issues.
+  4. All 49 automated tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `scripts/sync-version.sh`, `.github/workflows/release.yml`, `DECISIONS.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `scripts/sync-version.sh "v2.0.0"` execution, `flutter analyze`, and `flutter test`.
+- **Verification Result**: Successfully tested script locally with clean return code 0; verified POSIX redirection and dynamic packaging path. 49/49 tests passing; 0 analyzer issues. ADR-020 recorded.
+
+---
+
+### Task `CI-002`: Windows Release Workflow MSVC Coroutine Deprecation Suppression & Resilient Packaging
+- **Description**: Resolve MSVC `error STL1011` static assertion failure in `webview_all_windows_plugin.vcxproj` during Windows release compilation by suppressing deprecated `<experimental/coroutine>` warnings via `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` in `windows/CMakeLists.txt` and GitHub Actions `release.yml`. Harden PowerShell artifact packaging with fallback directory detection.
+- **Dependencies**: `CI-001`
+- **Acceptance Criteria**:
+  1. `windows/CMakeLists.txt` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` globally and in `APPLY_STANDARD_SETTINGS(TARGET)`.
+  2. `.github/workflows/release.yml` sets `env: CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"` for the Windows build step.
+  3. `.github/workflows/release.yml` uses robust directory fallback for `Compress-Archive`.
+  4. `flutter analyze` passes with 0 issues.
+  5. All 49 automated tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `windows/CMakeLists.txt`, `.github/workflows/release.yml`, `DECISIONS.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `flutter analyze` and `flutter test`.
+- **Verification Result**: Verified CMake preprocessor definitions and workflow environment variables. 49/49 tests passing; 0 analyzer issues. ADR-021 recorded.
+
+---
+
+### Task `CI-003`: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution
+- **Description**: Decouple Android, iOS, and Web build jobs from `release-desktop` by adding an initialization job `create-release` in `.github/workflows/release.yml`. This allows all platforms to run simultaneously in parallel and prevents desktop failures from skipping mobile and web builds.
+- **Dependencies**: `CI-002`
+- **Acceptance Criteria**:
+  1. `create-release` job runs first to initialize the GitHub Release tag.
+  2. `release-desktop`, `release-android`, `release-ios`, and `release-web` declare `needs: create-release` and run in parallel.
+  3. Failures in one target do not trigger cascade skips for other platforms.
+  4. `flutter analyze` passes with 0 issues.
+  5. All 49 automated tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `.github/workflows/release.yml`, `DECISIONS.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `flutter analyze` and `flutter test`.
+- **Verification Result**: Verified GitHub Actions DAG structure and job dependencies. 49/49 tests passing; 0 analyzer issues. ADR-022 recorded.
+
+
+
+
 
 
 

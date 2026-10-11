@@ -23,10 +23,10 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 PUBSPEC="$ROOT_DIR/pubspec.yaml"
 
 if [ -f "$PUBSPEC" ]; then
-  sed -i "s/^version: .*/version: ${CLEAN_VERSION}+${BUILD_NUMBER}/" "$PUBSPEC"
+  # Use temporary file for 100% portable replacement across both Linux (GNU sed) and macOS (BSD sed)
+  sed "s/^version: .*/version: ${CLEAN_VERSION}+${BUILD_NUMBER}/" "$PUBSPEC" > "${PUBSPEC}.tmp" && mv "${PUBSPEC}.tmp" "$PUBSPEC"
   echo "✓ pubspec.yaml -> ${CLEAN_VERSION}+${BUILD_NUMBER}"
 else
   echo "Error: pubspec.yaml not found at $PUBSPEC"
   exit 1
 fi
-

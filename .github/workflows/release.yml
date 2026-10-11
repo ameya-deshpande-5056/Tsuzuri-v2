@@ -15,8 +15,27 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Initialize GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: 'Tsuzuri ${{ github.ref_name || inputs.tag }}'
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
   release-desktop:
     name: Build Desktop (${{ matrix.platform }})
+    needs: create-release
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -121,6 +140,8 @@ jobs:
 
       - name: Build Windows Desktop Binary
         if: matrix.os == 'windows'
+        env:
+          CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
         run: flutter build windows --release
 
       - name: Package Windows Desktop Artifacts (.zip)
@@ -130,7 +151,11 @@ jobs:
           $rawTag = "${{ github.ref_name || inputs.tag }}"
           $version = $rawTag.TrimStart('v')
           New-Item -ItemType Directory -Force -Path release-artifacts
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "release-artifacts\Tsuzuri_${version}_windows-x64.zip"
+          $releaseDir = "build\windows\x64\runner\Release"
+          if (-not (Test-Path $releaseDir)) {
+            $releaseDir = "build\windows\runner\Release"
+          }
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath "release-artifacts\Tsuzuri_${version}_windows-x64.zip"
 
       - name: Build macOS Application Bundle
         if: matrix.os == 'macos'
@@ -142,14 +167,21 @@ jobs:
           RAW_TAG="${{ github.ref_name || inputs.tag }}"
           VERSION="${RAW_TAG#v}"
           mkdir -p release-artifacts
-          APP_PATH="build/macos/Build/Products/Release/tsuzuri.app"
+          APP_PATH=$(find build/macos/Build/Products/Release -name "*.app" -maxdepth 1 2>/dev/null | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: .app bundle not found in build/macos/Build/Products/Release"
+            exit 1
+          fi
+
+          echo "Found macOS bundle at: $APP_PATH"
+          APP_NAME=$(basename "$APP_PATH")
 
           # 1. Disk Image (.dmg)
           hdiutil create -volname "Tsuzuri" -srcfolder "$APP_PATH" -ov -format UDZO "release-artifacts/Tsuzuri_${VERSION}_macos.dmg"
 
           # 2. Universal Zip Archive
           cd build/macos/Build/Products/Release
-          zip -r "../../../../release-artifacts/Tsuzuri_${VERSION}_macos.zip" "tsuzuri.app"
+          zip -r "../../../../release-artifacts/Tsuzuri_${VERSION}_macos.zip" "$APP_NAME"
           cd ../../../..
 
       - name: Upload Desktop Artifacts to GitHub Release
@@ -165,7 +197,7 @@ jobs:
 
   release-android:
     name: Build Android APK & AAB
-    needs: release-desktop
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -256,7 +288,7 @@ jobs:
 
   release-ios:
     name: Build iOS IPA
-    needs: release-desktop
+    needs: create-release
     runs-on: macos-14
     steps:
       - name: Checkout repository
@@ -321,7 +353,7 @@ jobs:
 
   release-web:
     name: Build Web Target
-    needs: release-desktop
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
