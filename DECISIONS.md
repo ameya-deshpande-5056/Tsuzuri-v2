@@ -564,6 +564,33 @@
   - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
   - Workflow syntax validated.
 
+---
+
+## ADR-023: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts
+- **Status**: Accepted
+- **Date**: 2026-10-11
+- **Context**:
+  - The macOS desktop packaging step failed with:
+    ```text
+    zip I/O error: No such file or directory
+    zip error: Could not create output file (../../../../release-artifacts/Tsuzuri_2.0.1_macos.zip)
+    Error: Process completed with exit code 15.
+    ```
+  - The build directory `build/macos/Build/Products/Release` is 5 directory levels deep (`build` / `macos` / `Build` / `Products` / `Release`).
+  - The command previously used `../../../../release-artifacts`, which ascended only 4 levels (pointing to non-existent `build/release-artifacts/`).
+- **Decision & Architecture**:
+  - Replaced all fragile `../` relative paths in archive packaging with absolute `$WORKSPACE` / `$PWD` paths executed within isolated subshells:
+    ```bash
+    WORKSPACE="$PWD"
+    (cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/Tsuzuri_${VERSION}_macos.zip" "$APP_NAME")
+    ```
+  - Applied the same subshell pattern to Web packaging (`(cd build/web && zip -r "$WORKSPACE/release-artifacts/Tsuzuri_${VERSION}_web.zip" .)`) and iOS packaging (`(cd release-artifacts && zip -r "Tsuzuri_${VERSION}.ipa" Payload)`).
+  - This eliminates path-counting bugs, preserves the parent shell's working directory, and guarantees reliable artifact generation.
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
+
+
 
 
 

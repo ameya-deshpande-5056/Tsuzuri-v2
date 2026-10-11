@@ -10,10 +10,10 @@
   - Android SDK 37.0.0 (all licenses accepted; Gradle memory envelope strictly capped guaranteeing >= 4GB free RAM). Chrome 154 available.
 
 ## 2. Current Progress & Calculation
-- **Overall Completion**: **100.0%** (40 of 40 tasks verified)
+- **Overall Completion**: **100.0%** (41 of 41 tasks verified)
 - **Calculation Method**: `Task Completion % = (VERIFIED Tasks / Total Tasks) * 100` (Implemented but unverified tasks count as 0%).
 - **Current Phase**: **Phase 6: Finalization & Documentation (COMPLETED)**
-- **Active Task**: `CI-003`: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution (`VERIFIED`).
+- **Active Task**: `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts (`VERIFIED`).
 
 ## 3. Status by Phase
 | Phase | Title | Status | Completion |
@@ -24,7 +24,7 @@
 | **Phase 3** | Editing and File Operations | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 4** | Rendering Compatibility & Hardening | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 5** | Cross-Platform Verification | `COMPLETED` | 3 / 3 (100%) |
-| **Phase 6** | Finalization & Documentation | `COMPLETED` | 13 / 13 (100%) |
+| **Phase 6** | Finalization & Documentation | `COMPLETED` | 14 / 14 (100%) |
 
 ## 4. Completed & Verified Work
 - `PHASE0-001`: Inspected all 3 reference repositories (`Tsuzuri`, `md-latex-mermaid2pdf`, `GATE_DA`). Established rendering and UI baselines.
@@ -68,6 +68,7 @@
 - `CI-001`: macOS Release Workflow Portability & Dynamic Bundle Discovery. Replaced non-portable `sed -i` in `scripts/sync-version.sh` with POSIX-compliant output redirection to support BSD `sed` on macOS GitHub Actions runners. Hardened `.github/workflows/release.yml` with dynamic discovery of the macOS `.app` bundle name (`Tsuzuri.app`), preventing path mismatch failures during DMG creation and ZIP archiving. Verified script execution and test suite.
 - `CI-002`: Windows Release Workflow MSVC Coroutine Deprecation Suppression & Resilient Packaging. Defined `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` globally in `windows/CMakeLists.txt` and inside `APPLY_STANDARD_SETTINGS`, eliminating MSVC `error STL1011` static assertion failure in `webview_all_windows_plugin`. Configured `env: CL: ...` in `.github/workflows/release.yml` and hardened PowerShell ZIP packaging with fallback path discovery. Verified test suite.
 - `CI-003`: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution. Replaced sequential `needs: release-desktop` dependencies with an independent `create-release` initialization job. Decoupled Desktop, Android (APK/AAB), iOS (IPA), and Web target builds to execute simultaneously in parallel, preventing failures or delays on one platform from causing cascade skips on mobile or web targets. Verified test suite and DAG structure.
+- `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts. Replaced fragile `../../../../` relative traversal in macOS zip packaging with absolute `$WORKSPACE` / `$PWD` paths within isolated subshell `(cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/..." "$APP_NAME")`. Standardized subshell packaging across Web and iOS release jobs. Verified test suite.
 
 ## 5. Verification Records
 - `flutter analyze`: Passed with 0 issues found.
@@ -85,6 +86,7 @@
 - macOS Release Workflow Portability Verification: Verified `./scripts/sync-version.sh "v2.0.0"` executes cleanly with exit code 0 using POSIX redirection across BSD and GNU sed, and hardened `.github/workflows/release.yml` with dynamic bundle path resolution.
 - Windows Release Workflow MSVC Coroutine Deprecation Verification: Verified preprocessor definitions in `windows/CMakeLists.txt` and `release.yml` suppress STL1011 static assertion in `webview_all_windows`, with hardened fallback path resolution in PowerShell.
 - Workflow DAG Decoupling Verification: Verified independent `create-release` job allows Desktop, Android, iOS, and Web targets to build concurrently with zero cascade skips upon individual platform failures.
+- macOS Subshell Packaging Verification: Verified absolute workspace directory resolution in isolated subshell eliminates zip I/O error 15, standardizing packaging across macOS, Web, and iOS.
 
 
 ## 6. Definition of Done Checklist

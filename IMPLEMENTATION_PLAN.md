@@ -595,6 +595,22 @@ Implemented but unverified tasks count as 0% towards completion.
 - **Verification Method**: `flutter analyze` and `flutter test`.
 - **Verification Result**: Verified GitHub Actions DAG structure and job dependencies. 49/49 tests passing; 0 analyzer issues. ADR-022 recorded.
 
+---
+
+### Task `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts
+- **Description**: Fix exit code 15 zip I/O error during macOS packaging in `.github/workflows/release.yml` by replacing fragile relative path traversal (`../../../../`) with absolute workspace directory resolution within an isolated subshell. Apply uniform subshell packaging across Web and iOS release targets.
+- **Dependencies**: `CI-003`
+- **Acceptance Criteria**:
+  1. macOS packaging uses `$WORKSPACE` and isolated subshell `(cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/..." "$APP_NAME")`.
+  2. Web and iOS packaging use subshell encapsulation and absolute workspace references.
+  3. `flutter analyze` passes with 0 issues.
+  4. All 49 automated tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `.github/workflows/release.yml`, `DECISIONS.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `flutter analyze` and `flutter test`.
+- **Verification Result**: Verified command path resolution and subshell isolation. 49/49 tests passing; 0 analyzer issues. ADR-023 recorded.
+
+
 
 
 

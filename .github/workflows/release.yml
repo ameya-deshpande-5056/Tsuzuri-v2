@@ -180,9 +180,8 @@ jobs:
           hdiutil create -volname "Tsuzuri" -srcfolder "$APP_PATH" -ov -format UDZO "release-artifacts/Tsuzuri_${VERSION}_macos.dmg"
 
           # 2. Universal Zip Archive
-          cd build/macos/Build/Products/Release
-          zip -r "../../../../release-artifacts/Tsuzuri_${VERSION}_macos.zip" "$APP_NAME"
-          cd ../../../..
+          WORKSPACE="$PWD"
+          (cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/Tsuzuri_${VERSION}_macos.zip" "$APP_NAME")
 
       - name: Upload Desktop Artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -335,9 +334,7 @@ jobs:
           if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
             echo "Found .app at: $APP_DIR"
             cp -r "$APP_DIR" release-artifacts/Payload/
-            cd release-artifacts
-            zip -r "Tsuzuri_${VERSION}.ipa" Payload
-            cd ..
+            (cd release-artifacts && zip -r "Tsuzuri_${VERSION}.ipa" Payload)
           else
             echo "Error: .app directory not found in build outputs"
             exit 1
@@ -379,9 +376,8 @@ jobs:
           RAW_TAG="${{ github.ref_name || inputs.tag }}"
           VERSION="${RAW_TAG#v}"
           mkdir -p release-artifacts
-          cd build/web
-          zip -r "../../release-artifacts/Tsuzuri_${VERSION}_web.zip" .
-          cd ../..
+          WORKSPACE="$PWD"
+          (cd build/web && zip -r "$WORKSPACE/release-artifacts/Tsuzuri_${VERSION}_web.zip" .)
 
       - name: Upload Web Artifact to GitHub Release
         uses: softprops/action-gh-release@v2
