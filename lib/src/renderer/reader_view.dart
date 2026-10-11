@@ -192,6 +192,23 @@ class ReaderViewState extends State<ReaderView> {
     } catch (_) {}
   }
 
+  /// Displays the header action tooltip over the webview on Linux desktop.
+  Future<void> showTooltip(String text, double rightOffset) async {
+    if (_controller == null) return;
+    try {
+      final escaped = _escapeJs(text);
+      await _controller?.runJavaScript('window.showTooltip("$escaped", $rightOffset);');
+    } catch (_) {}
+  }
+
+  /// Hides the header action tooltip over the webview.
+  Future<void> hideTooltip() async {
+    if (_controller == null) return;
+    try {
+      await _controller?.runJavaScript('window.hideTooltip();');
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final backgroundColor = isDarkMode ? const Color(0xFF000000) : const Color(0xFFFCFCFC);

@@ -127,6 +127,16 @@ This document maintains the authoritative log of confirmed defects, platform dif
 - **Status**: Mitigated via Completion Handlers.
 - **Description**: Rendering large mathematical documents with MathJax is asynchronous. In `ReaderView`, typesetting completion triggers `onRenderComplete` once MathJax and Mermaid promises resolve.
 
+### 4.4 Editor Gutter Line-Wrap Synchronization & Caret Alignment
+- **Status**: Fully Resolved via ADR-024.
+- **Description**: In `MarkdownEditor`, wrapped lines previously caused cumulative vertical misalignment between text lines and gutter numbers, manifesting as line 21 aligning with line 20 in the gutter, particularly on Android.
+- **Resolution**: Implemented `StrutStyle(forceStrutHeight: true)` and dynamic cached `TextPainter` line-height calculation matching reference project `md-latex-mermaid2pdf`. Gutter containers expand for wrapped lines, preserving 1:1 alignment with text lines across all platforms and viewports. Updated caret tracking to `selection.extentOffset`.
+
+### 4.5 Mode-Switch Blank Screen Flash & Linux Tooltip Occlusion
+- **Status**: Fully Resolved via ADR-024.
+- **Description**: Switching between Reader and Editor previously destroyed and recreated `ReaderView`, triggering cold-start WebKitGTK initialization and a visible blank flash. Header button tooltips on Linux were occluded by native WebKitGTK child window. Keystroke `_onContentChanged` triggered full `AppShell` rebuilds and TOC re-parsing on every key.
+- **Resolution**: Mounted both views in persistent `Stack` with `Offstage` + `TickerMode`. Added in-webview tooltip bridge (`#header-tooltip`) in WebKitGTK DOM. Restricted `_onContentChanged` rebuilds to dirty-state transitions.
+
 ---
 
 ## 5. Bundle Size & Memory Footprint

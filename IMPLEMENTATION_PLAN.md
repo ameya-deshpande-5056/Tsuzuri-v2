@@ -610,6 +610,25 @@ Implemented but unverified tasks count as 0% towards completion.
 - **Verification Method**: `flutter analyze` and `flutter test`.
 - **Verification Result**: Verified command path resolution and subshell isolation. 49/49 tests passing; 0 analyzer issues. ADR-023 recorded.
 
+---
+
+### Task `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge
+- **Description**: Resolve editor line number misalignment (line 21 aligning with line 20) and Android gutter drift when text wraps, eliminate mode switch blank screen flash, prevent desktop header button tooltips from slipping under WebKitGTK, and optimize editor typing performance.
+- **Dependencies**: `CI-004`
+- **Acceptance Criteria**:
+  1. Editor line numbers gutter dynamically expands item heights to match wrapped text lines via `StrutStyle(forceStrutHeight: true)` and cached `TextPainter` measurement.
+  2. Cursor line/column tracking uses `selection.extentOffset` with CRLF normalization.
+  3. Reader and Editor views are maintained in a persistent `Offstage` + `TickerMode` stack, eliminating the cold-start blank screen flash on mode toggle.
+  4. In-webview tooltip bridge renders header action tooltips over WebKitGTK on Linux desktop.
+  5. Keystroke content updates avoid full `AppShell` rebuilds and re-parsing.
+  6. `flutter analyze` passes with 0 issues.
+  7. All automated unit and widget tests pass (53/53 passing).
+  8. Linux release build (`flutter build linux --release`) compiles cleanly.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `lib/src/editor/markdown_editor.dart`, `lib/src/ui/app_shell.dart`, `lib/src/ui/app_header.dart`, `lib/src/renderer/reader_view.dart`, `assets/renderer/template.html`, `assets/renderer/renderer.css`, `test/editor_gutter_alignment_test.dart`, `DECISIONS.md`, `KNOWN_ISSUES.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `flutter analyze`, `flutter test`, and `flutter build linux --release`.
+- **Verification Result**: Verified 53/53 tests passing, 0 analyzer issues, clean Linux release compilation, and synchronized line wrapping gutter heights. ADR-024 recorded.
+
 
 
 

@@ -10,10 +10,10 @@
   - Android SDK 37.0.0 (all licenses accepted; Gradle memory envelope strictly capped guaranteeing >= 4GB free RAM). Chrome 154 available.
 
 ## 2. Current Progress & Calculation
-- **Overall Completion**: **100.0%** (41 of 41 tasks verified)
+- **Overall Completion**: **100.0%** (42 of 42 tasks verified)
 - **Calculation Method**: `Task Completion % = (VERIFIED Tasks / Total Tasks) * 100` (Implemented but unverified tasks count as 0%).
 - **Current Phase**: **Phase 6: Finalization & Documentation (COMPLETED)**
-- **Active Task**: `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts (`VERIFIED`).
+- **Active Task**: `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge (`VERIFIED`).
 
 ## 3. Status by Phase
 | Phase | Title | Status | Completion |
@@ -24,7 +24,7 @@
 | **Phase 3** | Editing and File Operations | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 4** | Rendering Compatibility & Hardening | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 5** | Cross-Platform Verification | `COMPLETED` | 3 / 3 (100%) |
-| **Phase 6** | Finalization & Documentation | `COMPLETED` | 14 / 14 (100%) |
+| **Phase 6** | Finalization & Documentation | `COMPLETED` | 15 / 15 (100%) |
 
 ## 4. Completed & Verified Work
 - `PHASE0-001`: Inspected all 3 reference repositories (`Tsuzuri`, `md-latex-mermaid2pdf`, `GATE_DA`). Established rendering and UI baselines.
@@ -69,10 +69,11 @@
 - `CI-002`: Windows Release Workflow MSVC Coroutine Deprecation Suppression & Resilient Packaging. Defined `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` globally in `windows/CMakeLists.txt` and inside `APPLY_STANDARD_SETTINGS`, eliminating MSVC `error STL1011` static assertion failure in `webview_all_windows_plugin`. Configured `env: CL: ...` in `.github/workflows/release.yml` and hardened PowerShell ZIP packaging with fallback path discovery. Verified test suite.
 - `CI-003`: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution. Replaced sequential `needs: release-desktop` dependencies with an independent `create-release` initialization job. Decoupled Desktop, Android (APK/AAB), iOS (IPA), and Web target builds to execute simultaneously in parallel, preventing failures or delays on one platform from causing cascade skips on mobile or web targets. Verified test suite and DAG structure.
 - `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts. Replaced fragile `../../../../` relative traversal in macOS zip packaging with absolute `$WORKSPACE` / `$PWD` paths within isolated subshell `(cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/..." "$APP_NAME")`. Standardized subshell packaging across Web and iOS release jobs. Verified test suite.
+- `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge. Implemented dynamic editor line-wrap gutter synchronization via `StrutStyle(forceStrutHeight: true)` and cached `TextPainter` measurements matching reference project `md-latex-mermaid2pdf`, resolving line number misalignment and Android vertical drift. Switched cursor position tracking to `selection.extentOffset`. Swapped conditional view mounting with persistent `Offstage` + `TickerMode` stack in `AppShell`, eliminating cold-start blank screen flash on mode toggle. Implemented in-webview header action tooltip bridge (`#header-tooltip`) over WebKitGTK on Linux. Optimized keystroke dirty-state triggering to maintain 60fps typing responsiveness.
 
 ## 5. Verification Records
 - `flutter analyze`: Passed with 0 issues found.
-- `flutter test`: All 49 unit, widget, responsive, and regression tests passed.
+- `flutter test`: All 53 unit, widget, responsive, and regression tests passed.
 - `flutter build linux --release`: `✓ Built build/linux/x64/release/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build linux --debug`: `✓ Built build/linux/x64/debug/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build web --release`: `✓ Built build/web`.
@@ -87,6 +88,7 @@
 - Windows Release Workflow MSVC Coroutine Deprecation Verification: Verified preprocessor definitions in `windows/CMakeLists.txt` and `release.yml` suppress STL1011 static assertion in `webview_all_windows`, with hardened fallback path resolution in PowerShell.
 - Workflow DAG Decoupling Verification: Verified independent `create-release` job allows Desktop, Android, iOS, and Web targets to build concurrently with zero cascade skips upon individual platform failures.
 - macOS Subshell Packaging Verification: Verified absolute workspace directory resolution in isolated subshell eliminates zip I/O error 15, standardizing packaging across macOS, Web, and iOS.
+- Editor Gutter Line-Wrap Synchronization & Persistent Mode Switch Verification: Verified with widget tests that wrapped lines dynamically expand gutter item heights in exact sync with text line wrapping, selection tracking accurately reflects caret position, and persistent Offstage view stack eliminates blank screen cold starts.
 
 
 ## 6. Definition of Done Checklist
@@ -123,7 +125,7 @@
 
 ## 7. Last Updated
 - **Date**: 2026-10-11
-- **Latest Change**: Updated repository URL to `https://github.com/ameya-deshpande-5056/Tsuzuri-v2` across all project files: `about_dialog.dart`, `template.html`, `.github/workflows/release.yml`, `README.md`, `about_dialog_test.dart`, `DECISIONS.md`, and `IMPLEMENTATION_PLAN.md`. 49/49 automated tests passing; 0 analyzer issues.
+- **Latest Change**: Implemented Task `UI-013`: Editor gutter word-wrap dynamic height synchronization via `StrutStyle` and cached `TextPainter`, persistent `Offstage` + `TickerMode` Reader/Editor view stack eliminating mode switch blank screen flash, in-webview header action button tooltip bridge on Linux desktop over WebKitGTK, and keystroke dirty-state throttling. 53/53 tests passing; 0 analyzer issues. Built clean Linux release binary.
 
 
 

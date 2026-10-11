@@ -17,6 +17,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onOpenToc;
   final VoidCallback onSave;
   final VoidCallback onMoreActions;
+  final void Function(String text, double rightOffset)? onShowTooltip;
+  final VoidCallback? onHideTooltip;
 
   const AppHeader({
     super.key,
@@ -27,6 +29,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.onOpenToc,
     required this.onSave,
     required this.onMoreActions,
+    this.onShowTooltip,
+    this.onHideTooltip,
   });
 
   @override
@@ -114,40 +118,42 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         // TOC Button (shown on width >= 360)
         if (!isVeryCompact)
-          IconButton(
+          _buildActionButton(
             tooltip: 'Table of Contents',
             icon: const Icon(Icons.toc_outlined, size: 21),
-            padding: isCompact ? const EdgeInsets.all(4) : null,
-            constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+            isCompact: isCompact,
+            rightOffset: 138,
             onPressed: onOpenToc,
           ),
 
         // Save Button (shown on width >= 480; accessible via More menu on smaller screens)
         if (!isCompact)
-          IconButton(
+          _buildActionButton(
             tooltip: 'Save Document (Ctrl+S)',
             icon: const Icon(Icons.save_outlined, size: 20),
+            isCompact: isCompact,
+            rightOffset: 96,
             onPressed: onSave,
           ),
 
         // Toggle View Mode Button
-        IconButton(
+        _buildActionButton(
           tooltip: isEditorMode ? 'Switch to Reader (Ctrl+E)' : 'Switch to Editor (Ctrl+E)',
           icon: Icon(
             isEditorMode ? Icons.auto_stories_outlined : Icons.edit_note_outlined,
             size: 21,
           ),
-          padding: isCompact ? const EdgeInsets.all(4) : null,
-          constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+          isCompact: isCompact,
+          rightOffset: 54,
           onPressed: onToggleMode,
         ),
 
         // More Actions Button
-        IconButton(
+        _buildActionButton(
           tooltip: 'More Actions',
           icon: const Icon(Icons.more_horiz, size: 21),
-          padding: isCompact ? const EdgeInsets.all(4) : null,
-          constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+          isCompact: isCompact,
+          rightOffset: 12,
           onPressed: onMoreActions,
         ),
         SizedBox(width: isVeryCompact ? 2 : 4),
@@ -160,6 +166,31 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildActionButton({
+    required String tooltip,
+    required Widget icon,
+    required VoidCallback onPressed,
+    required double rightOffset,
+    bool isCompact = false,
+  }) {
+    Widget button = IconButton(
+      tooltip: tooltip,
+      icon: icon,
+      padding: isCompact ? const EdgeInsets.all(4) : null,
+      constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+      onPressed: onPressed,
+    );
+
+    if (onShowTooltip != null) {
+      button = MouseRegion(
+        onEnter: (_) => onShowTooltip!(tooltip, rightOffset),
+        onExit: (_) => onHideTooltip?.call(),
+        child: button,
+      );
+    }
+    return button;
   }
 }
 

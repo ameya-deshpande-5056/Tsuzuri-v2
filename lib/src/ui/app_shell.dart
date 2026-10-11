@@ -94,10 +94,13 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _onContentChanged(String newContent) {
-    setState(() {
+    if (!_document.isDirty) {
+      setState(() {
+        _document = _document.copyWithContent(newContent);
+      });
+    } else {
       _document = _document.copyWithContent(newContent);
-      _updateToc(newContent);
-    });
+    }
   }
 
   void _toggleViewMode() {
@@ -343,27 +346,48 @@ class _AppShellState extends State<AppShell> {
             onOpenToc: _openToc,
             onSave: _handleSave,
             onMoreActions: _openMoreActions,
+            onShowTooltip: (!kIsWeb && Platform.isLinux && !_isEditorMode)
+                ? (text, rightOffset) => _readerKey.currentState?.showTooltip(text, rightOffset)
+                : null,
+            onHideTooltip: (!kIsWeb && Platform.isLinux && !_isEditorMode)
+                ? () => _readerKey.currentState?.hideTooltip()
+                : null,
           ),
           endDrawer: TocDrawer(
             items: _tocItems,
             onSelectHeading: _onSelectTocHeading,
           ),
-          body: _isEditorMode
-              ? MarkdownEditor(
-                  controller: _editorController,
-                  showFindReplace: _showFindReplace,
-                  onCloseFindReplace: () => setState(() => _showFindReplace = false),
-                  onChanged: _onContentChanged,
-                )
-              : ReaderView(
-                  key: _readerKey,
-                  markdown: _document.content,
-                  themeMode: widget.currentThemeMode,
-                  baseDir: _document.baseDir,
-                  rightInset: _readerRightInset,
-                  isDialogActive: _isCenterDialogActive,
-                  onAction: _handleReaderAction,
+          body: Stack(
+            children: [
+              Offstage(
+                offstage: _isEditorMode,
+                child: TickerMode(
+                  enabled: !_isEditorMode,
+                  child: ReaderView(
+                    key: _readerKey,
+                    markdown: _document.content,
+                    themeMode: widget.currentThemeMode,
+                    baseDir: _document.baseDir,
+                    rightInset: _readerRightInset,
+                    isDialogActive: _isCenterDialogActive,
+                    onAction: _handleReaderAction,
+                  ),
                 ),
+              ),
+              Offstage(
+                offstage: !_isEditorMode,
+                child: TickerMode(
+                  enabled: _isEditorMode,
+                  child: MarkdownEditor(
+                    controller: _editorController,
+                    showFindReplace: _showFindReplace,
+                    onCloseFindReplace: () => setState(() => _showFindReplace = false),
+                    onChanged: _onContentChanged,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

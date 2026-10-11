@@ -29,12 +29,34 @@ class MarkdownEditor extends StatefulWidget {
 }
 
 class _MarkdownEditorState extends State<MarkdownEditor> {
+  static const double _kFontSize = 13.0;
+  static const double _kLineHeight = 22.0;
+
+  static const TextStyle _kEditorTextStyle = TextStyle(
+    fontFamily: 'monospace',
+    fontSize: _kFontSize,
+    height: _kLineHeight / _kFontSize,
+  );
+
+  static const StrutStyle _kEditorStrutStyle = StrutStyle(
+    fontFamily: 'monospace',
+    fontSize: _kFontSize,
+    height: _kLineHeight / _kFontSize,
+    forceStrutHeight: true,
+  );
+
   final ScrollController _textScrollController = ScrollController();
   final ScrollController _gutterScrollController = ScrollController();
 
   bool _wordWrap = true;
   int _cursorLine = 1;
   int _cursorColumn = 1;
+
+  // Gutter line height cache for word-wrap synchronization
+  List<double> _lineHeights = const [];
+  double _lastMeasuredWidth = 0.0;
+  String _lastMeasuredText = '';
+  bool _lastMeasuredWordWrap = true;
 
   // Find & Replace state
   String _searchQuery = '';
@@ -69,11 +91,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
 
-    if (selection.isValid && selection.baseOffset >= 0 && selection.baseOffset <= text.length) {
-      final textBeforeCursor = text.substring(0, selection.baseOffset);
+    if (selection.isValid && selection.extentOffset >= 0 && selection.extentOffset <= text.length) {
+      final textBeforeCursor = text.substring(0, selection.extentOffset);
       final lines = textBeforeCursor.split('\n');
       final line = lines.length;
-      final column = lines.isEmpty ? 1 : lines.last.length + 1;
+      final lastLine = lines.isEmpty ? '' : lines.last.replaceAll('\r', '');
+      final column = lastLine.length + 1;
 
       if (mounted && (_cursorLine != line || _cursorColumn != column)) {
         setState(() {
@@ -84,9 +107,56 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     }
   }
 
+  void _recalculateLineHeights(double availableWidth) {
+    final text = widget.controller.text;
+    if (availableWidth == _lastMeasuredWidth &&
+        text == _lastMeasuredText &&
+        _wordWrap == _lastMeasuredWordWrap) {
+      return;
+    }
+
+    final lines = text.split('\n');
+    if (!_wordWrap || availableWidth <= 1.0) {
+      _lineHeights = List.filled(lines.length, _kLineHeight);
+      _lastMeasuredWidth = availableWidth;
+      _lastMeasuredText = text;
+      _lastMeasuredWordWrap = _wordWrap;
+      return;
+    }
+
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      strutStyle: _kEditorStrutStyle,
+    );
+
+    final List<double> heights = [];
+    for (final line in lines) {
+      if (line.isEmpty) {
+        heights.add(_kLineHeight);
+        continue;
+      }
+      // Fast path: if the line character count cannot possibly wrap at availableWidth
+      // (monospace character width is ~7.5-8.0px for 13px font)
+      if (line.length * 7.0 < availableWidth) {
+        heights.add(_kLineHeight);
+        continue;
+      }
+      textPainter.text = TextSpan(text: line, style: _kEditorTextStyle);
+      textPainter.layout(maxWidth: availableWidth);
+      final linesCount = (textPainter.height / _kLineHeight).round().clamp(1, 1000);
+      heights.add(linesCount * _kLineHeight);
+    }
+
+    _lineHeights = heights;
+    _lastMeasuredWidth = availableWidth;
+    _lastMeasuredText = text;
+    _lastMeasuredWordWrap = _wordWrap;
+  }
+
   void _toggleWordWrap() {
     setState(() {
       _wordWrap = !_wordWrap;
+      _lastMeasuredWidth = 0.0;
     });
   }
 
@@ -208,93 +278,108 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
           // Main Editor Surface with Gutter
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Line Numbers Gutter
-                Container(
-                  width: gutterWidth,
-                  color: gutterBg,
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                    child: ListView.builder(
-                      controller: _gutterScrollController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      itemCount: lineCount,
-                      itemBuilder: (context, index) {
-                        final isCurrentLine = (index + 1) == _cursorLine;
-                        return Container(
-                          height: 22,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 10),
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                              fontWeight: isCurrentLine ? FontWeight.bold : FontWeight.normal,
-                              color: isCurrentLine
-                                  ? (isDark ? Colors.white : Colors.black87)
-                                  : gutterTextColor,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  color: theme.colorScheme.outline.withAlpha(40),
-                ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = (constraints.maxWidth - gutterWidth - 1 - 28.0).clamp(1.0, double.infinity);
+                _recalculateLineHeights(availableWidth);
 
-                // Editable Text Area
-                Expanded(
-                  child: _wordWrap
-                      ? TextField(
-                          controller: widget.controller,
-                          scrollController: _textScrollController,
-                          maxLines: null,
-                          keyboardType: TextInputType.multiline,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 13.5,
-                            height: 22 / 13.5, // Matches gutter line height exactly!
-                            color: editorTextColor,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                            isDense: true,
-                          ),
-                          onChanged: widget.onChanged,
-                        )
-                      : SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: IntrinsicWidth(
-                            child: TextField(
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Line Numbers Gutter
+                    Container(
+                      width: gutterWidth,
+                      color: gutterBg,
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: ListView.builder(
+                          controller: _gutterScrollController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          itemCount: lineCount,
+                          itemBuilder: (context, index) {
+                            final isCurrentLine = (index + 1) == _cursorLine;
+                            final itemHeight = (index < _lineHeights.length)
+                                ? _lineHeights[index]
+                                : _kLineHeight;
+                            return Container(
+                              height: itemHeight,
+                              alignment: Alignment.topRight,
+                              color: isCurrentLine
+                                  ? (isDark ? const Color(0xFF141416) : const Color(0xFFE8E8EC))
+                                  : null,
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Container(
+                                height: _kLineHeight,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: isCurrentLine ? FontWeight.bold : FontWeight.normal,
+                                    color: isCurrentLine
+                                        ? (isDark ? Colors.white : Colors.black87)
+                                        : gutterTextColor,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      color: theme.colorScheme.outline.withAlpha(40),
+                    ),
+
+                    // Editable Text Area
+                    Expanded(
+                      child: _wordWrap
+                          ? TextField(
                               controller: widget.controller,
                               scrollController: _textScrollController,
                               maxLines: null,
                               keyboardType: TextInputType.multiline,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 13.5,
-                                height: 22 / 13.5,
-                                color: editorTextColor,
-                              ),
+                              strutStyle: _kEditorStrutStyle,
+                              style: _kEditorTextStyle.copyWith(color: editorTextColor),
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                 isDense: true,
                               ),
-                              onChanged: widget.onChanged,
+                              onChanged: (val) {
+                                widget.onChanged?.call(val);
+                                if (mounted) setState(() {});
+                              },
+                            )
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: IntrinsicWidth(
+                                child: TextField(
+                                  controller: widget.controller,
+                                  scrollController: _textScrollController,
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
+                                  strutStyle: _kEditorStrutStyle,
+                                  style: _kEditorTextStyle.copyWith(color: editorTextColor),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                    isDense: true,
+                                  ),
+                                  onChanged: (val) {
+                                    widget.onChanged?.call(val);
+                                    if (mounted) setState(() {});
+                                  },
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                ),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 

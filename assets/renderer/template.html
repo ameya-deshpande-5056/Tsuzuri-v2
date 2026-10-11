@@ -21,6 +21,9 @@
     <!-- Rendered document will be inserted here -->
   </main>
 
+  <!-- Header Action Button Tooltip for Linux WebKitGTK -->
+  <div id="header-tooltip" class="header-tooltip" aria-hidden="true"></div>
+
   <!-- Actions Menu Popover (Parity with Tauri Tsuzuri desktop popover) -->
   <div id="popover-backdrop" class="popover-backdrop" aria-hidden="true"></div>
   <aside id="actions-popover" class="actions-popover" aria-label="Document Actions" aria-hidden="true">
@@ -796,6 +799,19 @@
           }
         });
       }
+
+      window.showTooltip = function(text, rightOffset) {
+        var el = document.getElementById('header-tooltip');
+        if (!el) return;
+        el.textContent = text;
+        el.style.right = (rightOffset || 12) + 'px';
+        el.classList.add('visible');
+      };
+
+      window.hideTooltip = function() {
+        var el = document.getElementById('header-tooltip');
+        if (el) el.classList.remove('visible');
+      };
 
       // Auto-initialize on load
       initMarkdownIt();

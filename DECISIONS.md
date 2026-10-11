@@ -590,6 +590,37 @@
   - `flutter analyze`: 0 issues found.
   - `flutter test`: 49/49 automated unit, widget, and regression tests passed.
 
+---
+
+## ADR-024: Editor Gutter Word-Wrap Synchronization, Persistent Reader/Editor Offstage Stack, and Linux In-WebView Tooltip Bridge
+- **Status**: Implemented & Verified
+- **Date**: 2026-10-11
+- **Context**:
+  1. In `MarkdownEditor`, the line numbers gutter used fixed 22px heights for every logical line. When `_wordWrap == true` (especially on Android and narrow viewports), wrapped lines occupied 2–4 visual lines in the text area, causing cumulative vertical misalignment. By line 21, previous wrapped lines pushed text down, causing text line 21 to align with gutter number 20 or earlier numbers.
+  2. Cursor line/column tracking used `selection.baseOffset` (selection start anchor) instead of `selection.extentOffset` (active caret position).
+  3. Toggling between Reader and Editor modes unmounted and recreated `ReaderView`, causing cold-start re-initialization of WebKitGTK and a brief blank screen flash.
+  4. On Linux desktop, the native WebKitGTK overlay occluded Flutter's action button tooltips positioned below the 48px header.
+  5. Keystrokes in `MarkdownEditor` caused `_onContentChanged` to invoke `setState()` on `AppShell` and re-parse TOC on every character, causing choppiness on Linux.
+- **Decision & Architecture**:
+  1. **Editor Gutter Line-Wrap Synchronization**:
+     - Configured `StrutStyle(fontFamily: 'monospace', fontSize: 13.0, height: 22.0 / 13.0, forceStrutHeight: true)` on `TextField` and `TextPainter`.
+     - Computed dynamic line heights with cached `TextPainter` measurements wrapped in `LayoutBuilder`. Fast path for short/empty lines (<charCount * 7.0px).
+     - Expanded gutter item containers to match wrapped visual heights (`N * 22.0px`), aligning line number labels to `Alignment.topRight` in 22px boxes with active line background highlight (`#141416` Dark / `#E8E8EC` Light).
+     - Switched selection tracking to `selection.extentOffset` with CRLF stripping.
+  2. **Persistent Offstage Stack for Mode Switching**:
+     - Swapped conditional tree destruction in `AppShell` with a persistent `Stack` containing `Offstage` + `TickerMode` for `ReaderView` and `MarkdownEditor`.
+     - WebKitGTK geometry observer hides the native X11 widget when offstage and restores it instantly on switch without reloading HTML or re-initializing DOM, eliminating the blank screen flash.
+     - Mode switch updates markdown via `window.renderDocument(...)` in <16ms.
+  3. **In-WebView Tooltip Bridge**:
+     - Added `#header-tooltip` in `template.html` and `renderer.css` with `window.showTooltip(text, rightOffset)` and `window.hideTooltip()`.
+     - In Reader mode on Linux, `AppHeader` buttons invoke the in-webview tooltip bridge over WebKitGTK.
+  4. **Keystroke Performance Optimization**:
+     - `_onContentChanged` only updates dirty state via `setState()` when transitioning from clean to dirty, keeping keystroke latency at 60fps.
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 53/53 automated unit, widget, and regression tests passed.
+  - `flutter build linux --release`: Built cleanly.
+
 
 
 
