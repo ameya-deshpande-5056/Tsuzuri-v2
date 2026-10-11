@@ -1,0 +1,361 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v2.0.0)'
+        required: true
+        default: 'v2.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release-desktop:
+    name: Build Desktop (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'ubuntu-22.04'
+            os: 'linux'
+          - platform: 'windows-latest'
+            os: 'windows'
+          - platform: 'macos-latest'
+            os: 'macos'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Linux dependencies (Ubuntu only)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
+
+      - name: Synchronize Version from Git Tag (Unix)
+        if: matrix.os != 'windows'
+        run: ./scripts/sync-version.sh "${{ github.ref_name || inputs.tag }}"
+
+      - name: Synchronize Version from Git Tag (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $rawTag = "${{ github.ref_name || inputs.tag }}"
+          $version = $rawTag.TrimStart('v')
+          $parts = $version.Split('-')[0].Split('.')
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+          $buildNumber = $major * 1000000 + $minor * 1000 + $patch
+          (Get-Content pubspec.yaml) -replace '^version: .*$', "version: $version+$buildNumber" | Set-Content pubspec.yaml
+          Write-Host "✓ pubspec.yaml -> $version+$buildNumber"
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build Linux Desktop Binary
+        if: matrix.os == 'linux'
+        run: flutter build linux --release
+
+      - name: Package Linux Desktop Artifacts (.tar.gz & .deb)
+        if: matrix.os == 'linux'
+        run: |
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          VERSION="${RAW_TAG#v}"
+          mkdir -p release-artifacts
+
+          # 1. Standalone Tarball
+          tar -czf "release-artifacts/Tsuzuri_${VERSION}_linux-x64.tar.gz" -C build/linux/x64/release/bundle .
+
+          # 2. Debian Package (.deb)
+          DEB_DIR="deb_package/tsuzuri_${VERSION}_amd64"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/usr/lib/tsuzuri"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/512x512/apps"
+
+          cp -r build/linux/x64/release/bundle/* "$DEB_DIR/usr/lib/tsuzuri/"
+          ln -sf /usr/lib/tsuzuri/tsuzuri "$DEB_DIR/usr/bin/tsuzuri"
+          cp assets/icon/icon.png "$DEB_DIR/usr/share/icons/hicolor/512x512/apps/tsuzuri.png"
+
+          cat << 'EOF' > "$DEB_DIR/usr/share/applications/tsuzuri.desktop"
+          [Desktop Entry]
+          Name=Tsuzuri
+          Comment=A quiet, lightweight, and offline Markdown document reader and editor
+          Exec=tsuzuri %F
+          Icon=tsuzuri
+          Terminal=false
+          Type=Application
+          Categories=Utility;TextEditor;
+          MimeType=text/markdown;text/x-markdown;text/plain;
+          StartupNotify=true
+          EOF
+
+          cat << EOF > "$DEB_DIR/DEBIAN/control"
+          Package: tsuzuri
+          Version: ${VERSION}
+          Section: editors
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Tsuzuri Team <https://github.com/ameya-deshpande-5056/Tsuzuri-v2>
+          Description: Quiet, lightweight, and offline Markdown document reader and editor
+           Tsuzuri v2 is a dedicated reader and editor prioritizing typographic clarity,
+           offline operation, AMOLED pure black mode, and LaTeX/Mermaid typesetting.
+          EOF
+
+          dpkg-deb --build "$DEB_DIR" "release-artifacts/Tsuzuri_${VERSION}_amd64.deb"
+
+      - name: Build Windows Desktop Binary
+        if: matrix.os == 'windows'
+        run: flutter build windows --release
+
+      - name: Package Windows Desktop Artifacts (.zip)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $rawTag = "${{ github.ref_name || inputs.tag }}"
+          $version = $rawTag.TrimStart('v')
+          New-Item -ItemType Directory -Force -Path release-artifacts
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "release-artifacts\Tsuzuri_${version}_windows-x64.zip"
+
+      - name: Build macOS Application Bundle
+        if: matrix.os == 'macos'
+        run: flutter build macos --release
+
+      - name: Package macOS Artifacts (.dmg & .zip)
+        if: matrix.os == 'macos'
+        run: |
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          VERSION="${RAW_TAG#v}"
+          mkdir -p release-artifacts
+          APP_PATH="build/macos/Build/Products/Release/tsuzuri.app"
+
+          # 1. Disk Image (.dmg)
+          hdiutil create -volname "Tsuzuri" -srcfolder "$APP_PATH" -ov -format UDZO "release-artifacts/Tsuzuri_${VERSION}_macos.dmg"
+
+          # 2. Universal Zip Archive
+          cd build/macos/Build/Products/Release
+          zip -r "../../../../release-artifacts/Tsuzuri_${VERSION}_macos.zip" "tsuzuri.app"
+          cd ../../../..
+
+      - name: Upload Desktop Artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: 'Tsuzuri ${{ github.ref_name || inputs.tag }}'
+          draft: false
+          prerelease: false
+          files: release-artifacts/*
+
+  release-android:
+    name: Build Android APK & AAB
+    needs: release-desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install Android Build Tools
+        run: |
+          echo y | sdkmanager --licenses || true
+          sdkmanager --install "build-tools;36.0.0" "platforms;android-36"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Synchronize Version from Git Tag
+        run: ./scripts/sync-version.sh "${{ github.ref_name || inputs.tag }}"
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build Android Release APK & App Bundle
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
+      - name: Sign Android APK
+        run: |
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          VERSION="${RAW_TAG#v}"
+          mkdir -p release-artifacts
+
+          APK_RAW=$(find build/app/outputs/flutter-apk -name "*release*.apk" | head -n 1)
+          if [ -z "$APK_RAW" ]; then
+            echo "Error: No release APK found!"
+            exit 1
+          fi
+
+          echo "Found APK: $APK_RAW"
+          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -name "apksigner" | head -n 1 | xargs dirname)
+          echo "Using build-tools at: $BUILD_TOOLS"
+
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Signing with repository secret keystore..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            KEYSTORE="release.keystore"
+            PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}"
+          else
+            echo "No keystore secret detected. Creating self-signed release key..."
+            keytool -genkey -v -keystore release.keystore -alias tsuzuri -keyalg RSA -keysize 2048 -validity 10000 -storepass tsuzuripass -keypass tsuzuripass -dname "CN=Tsuzuri, O=Tsuzuri, C=US"
+            KEYSTORE="release.keystore"
+            PASS="tsuzuripass"
+            ALIAS="tsuzuri"
+          fi
+
+          "$BUILD_TOOLS/zipalign" -f -v -p 4 "$APK_RAW" app-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" --ks-pass "pass:$PASS" --ks-key-alias "$ALIAS" --key-pass "pass:$PASS" --out app-signed.apk app-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify app-signed.apk
+
+          cp app-signed.apk "release-artifacts/Tsuzuri_${VERSION}.apk"
+
+          # Copy Google Play App Bundle (.aab)
+          AAB_RAW=$(find build/app/outputs/bundle -name "*.aab" | head -n 1)
+          if [ -n "$AAB_RAW" ]; then
+            cp "$AAB_RAW" "release-artifacts/Tsuzuri_${VERSION}.aab"
+          fi
+
+      - name: Upload Android Artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          files: release-artifacts/*
+
+  release-ios:
+    name: Build iOS IPA
+    needs: release-desktop
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$XCODE_PATH" ]; then
+            echo "Selecting Xcode: $XCODE_PATH"
+            sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+            echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> $GITHUB_ENV
+          else
+            echo "Keeping default Xcode version"
+          fi
+          xcodebuild -version
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Synchronize Version from Git Tag
+        run: ./scripts/sync-version.sh "${{ github.ref_name || inputs.tag }}"
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build iOS Application (Unsigned)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package iOS Payload into IPA
+        run: |
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          VERSION="${RAW_TAG#v}"
+          mkdir -p release-artifacts/Payload
+
+          APP_DIR=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData build/ios -name "*.app" -type d 2>/dev/null | head -n 1)
+          fi
+
+          if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
+            echo "Found .app at: $APP_DIR"
+            cp -r "$APP_DIR" release-artifacts/Payload/
+            cd release-artifacts
+            zip -r "Tsuzuri_${VERSION}.ipa" Payload
+            cd ..
+          else
+            echo "Error: .app directory not found in build outputs"
+            exit 1
+          fi
+
+      - name: Upload iOS IPA to GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          files: release-artifacts/*.ipa
+
+  release-web:
+    name: Build Web Target
+    needs: release-desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Synchronize Version from Git Tag
+        run: ./scripts/sync-version.sh "${{ github.ref_name || inputs.tag }}"
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build Web Target
+        run: flutter build web --release
+
+      - name: Package Web Artifacts (.zip)
+        run: |
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          VERSION="${RAW_TAG#v}"
+          mkdir -p release-artifacts
+          cd build/web
+          zip -r "../../release-artifacts/Tsuzuri_${VERSION}_web.zip" .
+          cd ../..
+
+      - name: Upload Web Artifact to GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          files: release-artifacts/*.zip
+

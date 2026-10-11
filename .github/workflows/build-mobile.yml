@@ -1,0 +1,108 @@
+name: Build Mobile (Android APK & iOS IPA)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install Android Build Tools
+        run: |
+          echo y | sdkmanager --licenses || true
+          sdkmanager --install "build-tools;36.0.0" "platforms;android-36"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build Android Debug APK
+        run: flutter build apk --debug
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsuzuri-android-apk
+          path: build/app/outputs/flutter-apk/*.apk
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$XCODE_PATH" ]; then
+            echo "Selecting Xcode: $XCODE_PATH"
+            sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+            echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> $GITHUB_ENV
+          else
+            echo "Keeping default Xcode version"
+          fi
+          xcodebuild -version
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build iOS Application (Unsigned)
+        run: flutter build ios --debug --no-codesign
+
+      - name: Package iOS Payload into IPA
+        run: |
+          mkdir -p Payload
+          APP_DIR=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData build/ios -name "*.app" -type d 2>/dev/null | head -n 1)
+          fi
+
+          if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
+            echo "Found .app at: $APP_DIR"
+            cp -r "$APP_DIR" Payload/
+            zip -r tsuzuri-unsigned.ipa Payload/
+          else
+            echo "Error: .app directory not found in build outputs"
+            exit 1
+          fi
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsuzuri-ios-payload
+          path: |
+            tsuzuri-unsigned.ipa
+            Payload/**/*.app
+          if-no-files-found: error
+

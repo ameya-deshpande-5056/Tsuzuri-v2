@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <!-- Offline Security: Block all external network requests -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: file: blob:; connect-src 'none';">
+  <title>Tsuzuri Document</title>
+  <link rel="stylesheet" href="renderer.css">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <script src="vendor/markdown-it.min.js"></script>
+  <script src="vendor/markdown-it-footnote.min.js"></script>
+  <script src="vendor/markdown-it-task-lists.min.js"></script>
+  <script src="vendor/highlight.min.js"></script>
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="vendor/katex/mhchem.min.js"></script>
+  <script src="vendor/mermaid.min.js"></script>
+</head>
+<body class="light">
+  <main class="document-container" id="content">
+    <!-- Rendered document will be inserted here -->
+  </main>
+
+  <!-- Actions Menu Popover (Parity with Tauri Tsuzuri desktop popover) -->
+  <div id="popover-backdrop" class="popover-backdrop" aria-hidden="true"></div>
+  <aside id="actions-popover" class="actions-popover" aria-label="Document Actions" aria-hidden="true">
+    <div class="popover-header">
+      <span class="popover-title">Actions</span>
+      <button id="btn-close-popover-x" class="popover-close-btn" title="Close" aria-label="Close Actions Menu">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="popover-body">
+      <div class="popover-actions">
+        <button class="popover-action-item" onclick="sendAction('toggleMode')" title="Edit Document (Ctrl+E)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
+            <path d="m15 5 4 4"></path>
+          </svg>
+          <span>Edit Document</span>
+          <kbd class="menu-shortcut-badge">Ctrl+E</kbd>
+        </button>
+        <button class="popover-action-item" onclick="sendAction('openFile')" title="Open Document (Ctrl+O)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+          </svg>
+          <span>Open Document...</span>
+          <kbd class="menu-shortcut-badge">Ctrl+O</kbd>
+        </button>
+        <button class="popover-action-item" onclick="sendAction('saveFile')" title="Save Document (Ctrl+S)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Save Document</span>
+          <kbd class="menu-shortcut-badge">Ctrl+S</kbd>
+        </button>
+        <button class="popover-action-item" onclick="sendAction('saveAsFile')" title="Save As (Ctrl+Shift+S)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Save As...</span>
+          <kbd class="menu-shortcut-badge">Ctrl+Shift+S</kbd>
+        </button>
+        <button class="popover-action-item" onclick="sendAction('toggleWordWrap')" title="Toggle Word Wrap (Alt+Z)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 10 4 15 9 20"></polyline>
+            <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+          </svg>
+          <span id="popover-wrap-label">Word Wrap: On</span>
+          <kbd class="menu-shortcut-badge">Alt+Z</kbd>
+        </button>
+        <button class="popover-action-item" onclick="sendAction('about')" title="About Tsuzuri">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>About Tsuzuri</span>
+        </button>
+      </div>
+
+      <div class="popover-section-title">Theme</div>
+      <div class="popover-theme-switcher">
+        <button id="popover-theme-system" class="popover-theme-btn" data-theme-mode="system" onclick="selectTheme('system')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>System</span>
+        </button>
+        <button id="popover-theme-light" class="popover-theme-btn" data-theme-mode="light" onclick="selectTheme('light')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+          </svg>
+          <span>Light</span>
+        </button>
+        <button id="popover-theme-dark" class="popover-theme-btn" data-theme-mode="dark" onclick="selectTheme('dark')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <span>AMOLED Dark</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- About Application Modal Dialog (Parity with Tauri Tsuzuri) -->
+  <div id="about-modal-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div id="about-dialog" class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-dialog-title">
+      <div class="about-header">
+        <span id="about-dialog-title" class="about-title">About Tsuzuri</span>
+        <button id="btn-close-about-x" class="about-close-x-btn" title="Close" aria-label="Close About Dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="about-body">
+        <div class="about-icon-container">
+          <img id="about-app-icon" src="data:image/png;base64,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" alt="Tsuzuri Icon" class="about-app-icon" />
+        </div>
+        <div class="about-details">
+          <h2 id="about-version-heading" class="about-app-heading">Tsuzuri 2.0.0</h2>
+          <p class="about-description">A quiet, lightweight, and offline Markdown document reader and editor.</p>
+          <div class="about-meta-grid">
+            <span class="about-meta-label">Version:</span>
+            <span id="about-meta-version" class="about-meta-value">2.0.0</span>
+
+            <span class="about-meta-label">Build time:</span>
+            <span id="about-meta-build-time" class="about-meta-value">2026-10-11T12:00:00Z</span>
+
+            <span class="about-meta-label">Project:</span>
+            <span class="about-meta-value">
+              <a id="about-github-link" href="https://github.com/ameya-deshpande-5056/Tsuzuri-v2" target="_blank" rel="noopener noreferrer" class="about-link">https://github.com/ameya-deshpande-5056/Tsuzuri-v2</a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var md = null;
+      var currentTheme = 'light';
+
+      function registerExtraLanguages() {
+        if (!window.hljs || typeof window.hljs.registerLanguage !== 'function') return;
+
+        if (!window.hljs.getLanguage('dart')) {
+          window.hljs.registerLanguage('dart', function(hljs) {
+            var SUBST = {
+              className: 'subst',
+              variants: [
+                { begin: '\\$[A-Za-z_][0-9A-Za-z_]*' },
+                { begin: '\\$\\{', end: '\\}', contains: ['self', hljs.C_NUMBER_MODE] }
+              ]
+            };
+            var STRING = {
+              className: 'string',
+              variants: [
+                { begin: "r'''", end: "'''" },
+                { begin: 'r"""', end: '"""' },
+                { begin: "r'", end: "'" },
+                { begin: 'r"', end: '"' },
+                { begin: "'''", end: "'''", contains: [hljs.BACKSLASH_ESCAPE, SUBST] },
+                { begin: '"""', end: '"""', contains: [hljs.BACKSLASH_ESCAPE, SUBST] },
+                { begin: "'", end: "'", contains: [hljs.BACKSLASH_ESCAPE, SUBST] },
+                { begin: '"', end: '"', contains: [hljs.BACKSLASH_ESCAPE, SUBST] }
+              ]
+            };
+            var KEYWORDS = {
+              keyword:
+                'abstract as assert async await base break case catch class const ' +
+                'continue covariant default deferred do dynamic else enum export ' +
+                'extends extension external factory false final finally for Function ' +
+                'get hide if implements import in interface is late library mixin ' +
+                'new null of on operator part required rethrow return sealed set show ' +
+                'static super switch sync this throw true try typedef var void ' +
+                'when while with yield',
+              built_in:
+                'int double String bool num dynamic Object print Null Never List Set Map ' +
+                'Iterable Future Stream Duration DateTime Uri RegExp',
+              literal: 'true false null'
+            };
+
+            return {
+              name: 'Dart',
+              keywords: KEYWORDS,
+              contains: [
+                STRING,
+                hljs.C_LINE_COMMENT_MODE,
+                hljs.C_BLOCK_COMMENT_MODE,
+                {
+                  className: 'class',
+                  beginKeywords: 'class interface enum mixin extension',
+                  end: /[{;]/,
+                  excludeEnd: true,
+                  contains: [
+                    { beginKeywords: 'extends with implements' },
+                    hljs.UNDERSCORE_TITLE_MODE
+                  ]
+                },
+                hljs.C_NUMBER_MODE,
+                {
+                  className: 'meta',
+                  begin: '@[A-Za-z]+'
+                },
+                {
+                  className: 'title function_',
+                  begin: '\\b[A-Za-z_][0-9A-Za-z_]*(?=\\s*\\()'
+                }
+              ]
+            };
+          });
+        }
+      }
+
+      function normalizeCodeLanguage(language) {
+        var lang = String(language || 'plaintext').trim().toLowerCase().replace(/[^\w-]/g, '') || 'plaintext';
+        var aliases = {
+          cplusplus: 'cpp',
+          cxx: 'cpp',
+          csharp: 'cs',
+          dartlang: 'dart',
+          golang: 'go',
+          javascript: 'js',
+          jsx: 'js',
+          node: 'js',
+          nodejs: 'js',
+          typescript: 'ts',
+          tsx: 'ts',
+          py: 'python',
+          rb: 'ruby',
+          rs: 'rust',
+          shell: 'bash',
+          sh: 'bash',
+          zsh: 'bash',
+          yml: 'yaml'
+        };
+        return aliases[lang] || lang;
+      }
+
+      function highlightFallbackCode(code, language) {
+        var escaped = escapeHtml(code);
+        var rules = [
+          [/(&quot;.*?&quot;|'.*?'|`[\s\S]*?`)/g, 'hljs-string'],
+          [/(#.*$|\/\/.*$)/gm, 'hljs-comment'],
+          [/\b(\d+(?:\.\d+)?)\b/g, 'hljs-number'],
+          [/\b(true|false|null|undefined|None|nil|TRUE|FALSE|NULL)\b/g, 'hljs-literal'],
+          [/\b(abstract|as|assert|async|await|break|case|catch|class|const|continue|default|do|else|enum|export|extends|external|false|final|finally|for|function|get|if|implements|import|in|interface|is|let|new|null|return|set|static|super|switch|this|throw|true|try|typedef|var|void|while|with|yield|def|lambda|from|elif)\b/g, 'hljs-keyword']
+        ];
+        var result = escaped;
+        rules.forEach(function(rule) {
+          result = result.replace(rule[0], '<span class="' + rule[1] + '">$1</span>');
+        });
+        return result;
+      }
+
+      function initMarkdownIt() {
+        if (typeof window.markdownit !== 'function') return;
+
+        registerExtraLanguages();
+
+        md = window.markdownit({
+          html: true,
+          xhtmlOut: false,
+          breaks: true,
+          langPrefix: 'language-',
+          linkify: true,
+          typographer: true,
+          highlight: function(code, lang) {
+            var language = normalizeCodeLanguage(lang);
+            if (language === 'mermaid') {
+              return '<div class="mermaid-block" data-source="' + encodeURIComponent(code) + '"><pre class="mermaid">' + escapeHtml(code) + '</pre></div>';
+            }
+
+            if (window.hljs && window.hljs.getLanguage(language)) {
+              try {
+                return '<pre class="hljs"><code class="language-' + language + '">' + window.hljs.highlight(code, { language: language, ignoreIllegals: true }).value + '</code></pre>';
+              } catch (e) {}
+            }
+            return '<pre class="hljs"><code class="language-' + language + '">' + highlightFallbackCode(code, language) + '</code></pre>';
+          }
+        });
+
+        if (window.markdownitFootnote) md.use(window.markdownitFootnote);
+        if (window.markdownitTaskLists) md.use(window.markdownitTaskLists, { enabled: true, label: true });
+
+        // Custom fence rule with distinguishable section container, language header, and copy button
+        md.renderer.rules.fence = function(tokens, idx, options, env, self) {
+          var token = tokens[idx];
+          var info = token.info ? token.info.trim() : '';
+          var rawLang = info.split(/\s+/)[0];
+          var lang = normalizeCodeLanguage(rawLang);
+
+          if (lang === 'mermaid') {
+            return '<div class="mermaid-block" data-source="' + encodeURIComponent(token.content) + '"><pre class="mermaid">' + escapeHtml(token.content) + '</pre></div>\n';
+          }
+
+          var displayLabel = rawLang ? rawLang.toLowerCase() : (lang !== 'plaintext' ? lang : 'text');
+          var highlightedCode;
+
+          if (window.hljs && window.hljs.getLanguage(lang)) {
+            try {
+              highlightedCode = window.hljs.highlight(token.content, { language: lang, ignoreIllegals: true }).value;
+            } catch (e) {
+              highlightedCode = highlightFallbackCode(token.content, lang);
+            }
+          } else {
+            highlightedCode = highlightFallbackCode(token.content, lang);
+          }
+
+          return '<div class="code-block-wrapper" data-lang="' + escapeHtml(displayLabel) + '">' +
+            '<div class="code-block-header">' +
+              '<span class="code-block-lang">' + escapeHtml(displayLabel) + '</span>' +
+              '<button class="code-copy-btn" onclick="copyCode(this)" aria-label="Copy code">Copy</button>' +
+            '</div>' +
+            '<pre class="hljs"><code class="language-' + escapeHtml(lang) + '">' + highlightedCode + '</code></pre>' +
+          '</div>\n';
+        };
+
+        md.renderer.rules.code_block = function(tokens, idx, options, env, self) {
+          var token = tokens[idx];
+          return '<div class="code-block-wrapper" data-lang="text">' +
+            '<div class="code-block-header">' +
+              '<span class="code-block-lang">text</span>' +
+              '<button class="code-copy-btn" onclick="copyCode(this)" aria-label="Copy code">Copy</button>' +
+            '</div>' +
+            '<pre class="hljs"><code class="language-plaintext">' + escapeHtml(token.content) + '</code></pre>' +
+          '</div>\n';
+        };
+
+        // Add heading anchor IDs
+        var origHeadingOpen = md.renderer.rules.heading_open || function(tokens, idx, options, env, self) {
+          return self.renderToken(tokens, idx, options);
+        };
+        md.renderer.rules.heading_open = function(tokens, idx, options, env, self) {
+          var nextToken = tokens[idx + 1];
+          if (nextToken && nextToken.type === 'inline') {
+            tokens[idx].attrSet('id', slugify(nextToken.content));
+          }
+          return origHeadingOpen(tokens, idx, options, env, self);
+        };
+
+        // Wrap tables in responsive container
+        var origTableOpen = md.renderer.rules.table_open || function(tokens, idx, options, env, self) {
+          return self.renderToken(tokens, idx, options);
+        };
+        var origTableClose = md.renderer.rules.table_close || function(tokens, idx, options, env, self) {
+          return self.renderToken(tokens, idx, options);
+        };
+        md.renderer.rules.table_open = function(tokens, idx, options, env, self) {
+          return '<div class="table-wrapper">' + origTableOpen(tokens, idx, options, env, self);
+        };
+        md.renderer.rules.table_close = function(tokens, idx, options, env, self) {
+          return origTableClose(tokens, idx, options, env, self) + '</div>';
+        };
+      }
+
+      function slugify(text) {
+        return (text || '').toLowerCase().trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/[\s_-]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'section';
+      }
+
+      function escapeHtml(text) {
+        return (text || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // Robust line-based CommonMark segmentation preserving exact line endings
+      function segmentMarkdown(markdown) {
+        var lines = markdown.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) || [];
+        if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+
+        var segments = [];
+        var currentChunk = [];
+        var inCodeFence = false;
+        var fenceChar = '';
+        var fenceLen = 0;
+        var inHtmlComment = false;
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          var cleanLine = line.replace(/[\r\n]+$/, '');
+          var trimmed = cleanLine.trimStart();
+
+          if (inCodeFence) {
+            currentChunk.push(line);
+            if (trimmed.startsWith(fenceChar.repeat(fenceLen))) {
+              var rest = trimmed.slice(fenceLen).trim();
+              if (rest === '' || rest.replace(new RegExp('\\' + fenceChar, 'g'), '') === '') {
+                segments.push({ type: 'code', text: currentChunk.join('') });
+                currentChunk = [];
+                inCodeFence = false;
+              }
+            }
+            continue;
+          }
+
+          if (inHtmlComment) {
+            currentChunk.push(line);
+            if (cleanLine.includes('-->')) {
+              segments.push({ type: 'comment', text: currentChunk.join('') });
+              currentChunk = [];
+              inHtmlComment = false;
+            }
+            continue;
+          }
+
+          if (trimmed.startsWith('<!--')) {
+            if (currentChunk.length > 0) {
+              segments.push({ type: 'prose', text: currentChunk.join('') });
+              currentChunk = [];
+            }
+            currentChunk.push(line);
+            if (!cleanLine.includes('-->')) {
+              inHtmlComment = true;
+            } else {
+              segments.push({ type: 'comment', text: currentChunk.join('') });
+              currentChunk = [];
+            }
+            continue;
+          }
+
+          var fenceMatch = /^[ ]{0,3}(`{3,}|~{3,})[ \t]*(.*)$/.exec(cleanLine);
+          if (fenceMatch) {
+            var char = fenceMatch[1][0];
+            var len = fenceMatch[1].length;
+            var info = fenceMatch[2].trim();
+
+            if (char === '~' || !info.includes('`')) {
+              if (currentChunk.length > 0) {
+                segments.push({ type: 'prose', text: currentChunk.join('') });
+                currentChunk = [];
+              }
+              fenceChar = char;
+              fenceLen = len;
+              inCodeFence = true;
+              currentChunk.push(line);
+              continue;
+            }
+          }
+
+          currentChunk.push(line);
+        }
+
+        if (currentChunk.length > 0) {
+          segments.push({ type: inCodeFence ? 'code' : inHtmlComment ? 'comment' : 'prose', text: currentChunk.join('') });
+        }
+
+        return segments;
+      }
+
+      // Protect math blocks before markdown-it parsing
+      function protectMath(markdown) {
+        var items = [];
+        var segments = segmentMarkdown(markdown);
+
+        var source = segments.map(function(seg) {
+          if (seg.type !== 'prose') return seg.text;
+
+          // Inside prose: split on inline code spans to protect inline code
+          var parts = seg.text.split(/(`[^`\n]+`)/g);
+          return parts.map(function(part, idx) {
+            if (idx % 2 === 1) return part; // inside inline code
+
+            // 1. Replace display math $$...$$
+            var p1 = part.replace(/\$\$([\s\S]+?)\$\$/g, function(_, tex) {
+              var key = '@@MATH_DISP_' + items.length + '@@';
+              items.push({ display: true, tex: tex.trim(), key: key });
+              return '\n\n' + key + '\n\n';
+            });
+
+            // 2. Replace inline math $...$
+            var p2 = p1.replace(/(^|[^\w\\\$])\$([^\s\$](?:[^\\\$]*?(?:\\.[^\\\$]*?)*?[^\s\$\\]|))\$(?!\d)/g, function(match, prefix, tex) {
+              if (!tex.trim() || /\n\s*\n/.test(tex)) return match;
+              var key = '@@MATH_INL_' + items.length + '@@';
+              items.push({ display: false, tex: tex.trim(), key: key });
+              return prefix + key;
+            });
+
+            // 3. Replace chemistry \ce{...} and units \pu{...} outside math mode
+            var p3 = p2.replace(/(^|[^\\])\\(ce|pu)\{((?:[^{}]|\{[^{}]*\})*)\}/g, function(match, prefix, cmd, content) {
+              var key = '@@MATH_CHEM_' + items.length + '@@';
+              items.push({ display: false, tex: '\\' + cmd + '{' + content + '}', key: key });
+              return prefix + key;
+            });
+
+            return p3;
+          }).join('');
+        }).join('');
+
+        return { source: source, items: items };
+      }
+
+      function renderKaTeX(tex, display) {
+        if (!window.katex) {
+          return display ? '<div class="math-block">$$' + escapeHtml(tex) + '$$</div>' : '<span class="math-inline">$' + escapeHtml(tex) + '$</span>';
+        }
+        try {
+          return window.katex.renderToString(tex, {
+            displayMode: display,
+            throwOnError: false,
+            errorColor: '#ef4444',
+            output: 'html',
+            strict: false
+          });
+        } catch (e) {
+          return '<span style="color:#ef4444;">[Math Error: ' + escapeHtml(e.message) + ']</span>';
+        }
+      }
+
+      function restoreMath(html, items) {
+        var output = html;
+        for (var i = 0; i < items.length; i++) {
+          var item = items[i];
+          var key = item.key;
+          var rendered = renderKaTeX(item.tex, item.display);
+          var finalHtml = item.display ? '<div class="math-block">' + rendered + '</div>' : '<span class="math-inline">' + rendered + '</span>';
+
+          var blockPattern = new RegExp('<p>\\s*' + key + '\\s*<\\/p>', 'g');
+          output = output.replace(blockPattern, finalHtml).replaceAll(key, finalHtml);
+        }
+        return output;
+      }
+
+      async function renderMermaidDiagrams() {
+        if (!window.mermaid) return;
+
+        window.mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: 'loose',
+          theme: currentTheme === 'dark' ? 'dark' : 'default'
+        });
+
+        var blocks = document.querySelectorAll('.mermaid-block');
+        for (var i = 0; i < blocks.length; i++) {
+          var block = blocks[i];
+          var source = decodeURIComponent(block.getAttribute('data-source') || '');
+          var id = 'mermaid-diag-' + Math.random().toString(36).substring(2, 9);
+
+          try {
+            var result = await window.mermaid.render(id, source);
+            var wrapper = document.createElement('div');
+            wrapper.className = 'mermaid-diagram';
+            wrapper.innerHTML = result.svg;
+            block.replaceWith(wrapper);
+          } catch (error) {
+            var errCard = document.createElement('div');
+            errCard.className = 'mermaid-error';
+            errCard.innerHTML = '<div class="mermaid-error-title">Mermaid Diagram Syntax Error: ' + escapeHtml(error.message) + '</div><div class="mermaid-error-source">' + escapeHtml(source) + '</div>';
+            block.replaceWith(errCard);
+          }
+        }
+      }
+
+      function resolveRelativeImages(container, baseDir) {
+        if (!baseDir) return;
+        var images = container.querySelectorAll('img');
+        for (var i = 0; i < images.length; i++) {
+          var img = images[i];
+          var src = img.getAttribute('src');
+          if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:') && !src.startsWith('file://')) {
+            var cleanBase = baseDir.endsWith('/') ? baseDir : baseDir + '/';
+            var cleanSrc = src.startsWith('./') ? src.substring(2) : src;
+            img.src = 'file://' + cleanBase + cleanSrc;
+          }
+        }
+      }
+
+      window.copyCode = function(button) {
+        var wrapper = button.closest('.code-block-wrapper');
+        if (!wrapper) return;
+        var codeEl = wrapper.querySelector('code');
+        if (!codeEl) return;
+        var text = codeEl.innerText || codeEl.textContent || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() {
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(function() {
+              button.textContent = 'Copy';
+              button.classList.remove('copied');
+            }, 2000);
+          }).catch(function() {
+            fallbackCopy(text, button);
+          });
+        } else {
+          fallbackCopy(text, button);
+        }
+      };
+
+      function fallbackCopy(text, button) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          button.textContent = 'Copied!';
+          button.classList.add('copied');
+          setTimeout(function() {
+            button.textContent = 'Copy';
+            button.classList.remove('copied');
+          }, 2000);
+        } catch (e) {}
+      }
+
+      window.setTheme = function(theme) {
+        currentTheme = theme === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        document.body.className = currentTheme;
+      };
+
+      window.renderDocument = async function(markdown, theme, baseDir) {
+        if (theme) window.setTheme(theme);
+        if (!md) initMarkdownIt();
+
+        var container = document.getElementById('content');
+        if (!container) return;
+
+        try {
+          var protectedResult = protectMath(markdown || '');
+          var rawHtml = md.render(protectedResult.source);
+          var fullHtml = restoreMath(rawHtml, protectedResult.items);
+
+          container.innerHTML = fullHtml;
+          resolveRelativeImages(container, baseDir);
+          await renderMermaidDiagrams();
+
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('onRenderComplete');
+          }
+        } catch (err) {
+          container.innerHTML = '<div style="color:red; padding:20px;">Render Error: ' + escapeHtml(err.message) + '</div>';
+        }
+      };
+
+      window.scrollToHeading = function(id) {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      };
+
+      window.openAboutDialog = function(version, buildTime) {
+        var backdrop = document.getElementById('about-modal-backdrop');
+        if (!backdrop) return;
+        var heading = document.getElementById('about-version-heading');
+        var metaVer = document.getElementById('about-meta-version');
+        var metaTime = document.getElementById('about-meta-build-time');
+        if (heading && version) heading.textContent = 'Tsuzuri ' + version;
+        if (metaVer && version) metaVer.textContent = version;
+        if (metaTime && buildTime) metaTime.textContent = buildTime;
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+      };
+
+      window.closeAboutDialog = function() {
+        var backdrop = document.getElementById('about-modal-backdrop');
+        if (!backdrop) return;
+        backdrop.classList.remove('open');
+        backdrop.setAttribute('aria-hidden', 'true');
+      };
+
+      var closeAboutBtn = document.getElementById('btn-close-about-x');
+      if (closeAboutBtn) {
+        closeAboutBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.closeAboutDialog();
+        });
+      }
+      var aboutBackdrop = document.getElementById('about-modal-backdrop');
+      if (aboutBackdrop) {
+        aboutBackdrop.addEventListener('click', function(e) {
+          if (e.target === aboutBackdrop) {
+            window.closeAboutDialog();
+          }
+        });
+      }
+      window.openActionsPopover = function(opts) {
+        opts = opts || {};
+        var popover = document.getElementById('actions-popover');
+        var backdrop = document.getElementById('popover-backdrop');
+        if (!popover || !backdrop) return;
+        if (typeof opts.wordWrap === 'boolean') {
+          var wrapLabel = document.getElementById('popover-wrap-label');
+          if (wrapLabel) wrapLabel.textContent = 'Word Wrap: ' + (opts.wordWrap ? 'On' : 'Off');
+        }
+        if (opts.theme) {
+          var themeBtns = document.querySelectorAll('.popover-theme-btn');
+          themeBtns.forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-theme-mode') === opts.theme);
+          });
+        }
+        popover.classList.add('open');
+        popover.setAttribute('aria-hidden', 'false');
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+      };
+
+      window.closeActionsPopover = function() {
+        var popover = document.getElementById('actions-popover');
+        var backdrop = document.getElementById('popover-backdrop');
+        if (popover) {
+          popover.classList.remove('open');
+          popover.setAttribute('aria-hidden', 'true');
+        }
+        if (backdrop) {
+          backdrop.classList.remove('open');
+          backdrop.setAttribute('aria-hidden', 'true');
+        }
+      };
+
+      window.toggleActionsPopover = function(opts) {
+        var popover = document.getElementById('actions-popover');
+        if (popover && popover.classList.contains('open')) {
+          window.closeActionsPopover();
+        } else {
+          window.openActionsPopover(opts);
+        }
+      };
+
+      window.sendAction = function(action) {
+        window.closeActionsPopover();
+        if (window.TsuzuriHost && window.TsuzuriHost.postMessage) {
+          window.TsuzuriHost.postMessage(action);
+        } else {
+          window.location.href = 'tsuzuri-action://' + action;
+        }
+      };
+
+      window.selectTheme = function(mode) {
+        var themeBtns = document.querySelectorAll('.popover-theme-btn');
+        themeBtns.forEach(function(btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-theme-mode') === mode);
+        });
+        if (window.TsuzuriHost && window.TsuzuriHost.postMessage) {
+          window.TsuzuriHost.postMessage('theme:' + mode);
+        } else {
+          window.location.href = 'tsuzuri-action://theme:' + mode;
+        }
+      };
+
+      var closePopoverBtn = document.getElementById('btn-close-popover-x');
+      if (closePopoverBtn) {
+        closePopoverBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.closeActionsPopover();
+        });
+      }
+      var popoverBackdrop = document.getElementById('popover-backdrop');
+      if (popoverBackdrop) {
+        popoverBackdrop.addEventListener('click', function(e) {
+          window.closeActionsPopover();
+        });
+      }
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          window.closeAboutDialog();
+          window.closeActionsPopover();
+        }
+      });
+      var githubLink = document.getElementById('about-github-link');
+      if (githubLink) {
+        githubLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText('https://github.com/ameya-deshpande-5056/Tsuzuri-v2');
+          }
+        });
+      }
+
+      // Auto-initialize on load
+      initMarkdownIt();
+    })();
+  </script>
+</body>
+</html>
+
