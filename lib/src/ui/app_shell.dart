@@ -149,6 +149,14 @@ class _AppShellState extends State<AppShell> {
 
   void _openToc() {
     _updateToc(_editorController.text);
+    final currentReader = _readerKey.currentState;
+    if (!kIsWeb &&
+        Platform.isLinux &&
+        !_isEditorMode &&
+        (currentReader?.hasActiveController ?? false)) {
+      currentReader?.openTocPanel(_tocItems);
+      return;
+    }
     _scaffoldKey.currentState?.openEndDrawer();
   }
 
@@ -270,6 +278,7 @@ class _AppShellState extends State<AppShell> {
           wordWrap: _wordWrap,
           currentThemeMode: widget.currentThemeMode,
           onToggleMode: _toggleViewMode,
+          onOpenToc: _openToc,
           onOpenFile: _handleOpen,
           onSaveFile: _handleSave,
           onSaveAsFile: _handleSaveAs,

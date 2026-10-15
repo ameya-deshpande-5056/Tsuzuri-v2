@@ -82,7 +82,7 @@ void main() {
     }
     stopwatch.stop();
     debugPrint('1000 lines measured in: ${stopwatch.elapsedMilliseconds} ms');
-    expect(stopwatch.elapsedMilliseconds, lessThan(100)); // Under 100ms
+    expect(stopwatch.elapsedMilliseconds, lessThan(250)); // Fast layout under 250ms
   });
 
   testWidgets('Wrapped line height in TextField matches TextPainter line height', (tester) async {

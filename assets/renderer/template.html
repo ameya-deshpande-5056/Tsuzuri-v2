@@ -121,6 +121,23 @@
     </div>
   </aside>
 
+  <!-- Table of Contents Slide-in Panel (Responsive Overlay without Document Displacement) -->
+  <div id="toc-backdrop" class="toc-backdrop" aria-hidden="true"></div>
+  <aside id="toc-panel" class="toc-panel" aria-hidden="true" role="dialog" aria-label="Table of Contents">
+    <div class="toc-header">
+      <span class="toc-title">Contents</span>
+      <button id="btn-close-toc-x" class="about-close-x-btn" title="Close" aria-label="Close Table of Contents">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div id="toc-items-container" class="toc-items-container">
+      <div class="toc-empty">No headings found in document.</div>
+    </div>
+  </aside>
+
   <!-- About Application Modal Dialog (Parity with Tauri Tsuzuri) -->
   <div id="about-modal-backdrop" class="modal-backdrop" aria-hidden="true">
     <div id="about-dialog" class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-dialog-title">
@@ -784,10 +801,81 @@
         });
       }
 
+      window.openTocPanel = function(itemsJson) {
+        var panel = document.getElementById('toc-panel');
+        var backdrop = document.getElementById('toc-backdrop');
+        var container = document.getElementById('toc-items-container');
+        if (!panel || !backdrop || !container) return;
+
+        var items = [];
+        try {
+          items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : (itemsJson || []);
+        } catch (e) {
+          items = [];
+        }
+
+        if (!items || items.length === 0) {
+          container.innerHTML = '<div class="toc-empty">No headings found in document.</div>';
+        } else {
+          var html = '<ul class="toc-list">';
+          for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var level = item.level || 1;
+            var indent = (level - 1) * 14;
+            var slug = (item.slug || '').replace(/'/g, "\\'");
+            var text = escapeHtml(item.text || '');
+            html += '<li class="toc-item" style="padding-left: ' + (14 + indent) + 'px;" onclick="window.selectTocHeading(\'' + slug + '\')">' +
+              '<span class="toc-level-badge">H' + level + '</span>' +
+              '<span class="toc-text">' + text + '</span>' +
+              '</li>';
+          }
+          html += '</ul>';
+          container.innerHTML = html;
+        }
+
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+      };
+
+      window.closeTocPanel = function() {
+        var panel = document.getElementById('toc-panel');
+        var backdrop = document.getElementById('toc-backdrop');
+        if (panel) {
+          panel.classList.remove('open');
+          panel.setAttribute('aria-hidden', 'true');
+        }
+        if (backdrop) {
+          backdrop.classList.remove('open');
+          backdrop.setAttribute('aria-hidden', 'true');
+        }
+      };
+
+      window.selectTocHeading = function(slug) {
+        window.closeTocPanel();
+        window.scrollToHeading(slug);
+      };
+
+      var closeTocBtn = document.getElementById('btn-close-toc-x');
+      if (closeTocBtn) {
+        closeTocBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.closeTocPanel();
+        });
+      }
+      var tocBackdrop = document.getElementById('toc-backdrop');
+      if (tocBackdrop) {
+        tocBackdrop.addEventListener('click', function(e) {
+          window.closeTocPanel();
+        });
+      }
+
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           window.closeAboutDialog();
           window.closeActionsPopover();
+          window.closeTocPanel();
         }
       });
       var githubLink = document.getElementById('about-github-link');

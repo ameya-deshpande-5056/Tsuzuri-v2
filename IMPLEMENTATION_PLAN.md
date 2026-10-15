@@ -675,6 +675,62 @@ Implemented but unverified tasks count as 0% towards completion.
 - **Verification Method**: `flutter analyze`, `flutter test test/ui/document_thumbnail_test.dart`, `flutter test test/ui/library_screen_test.dart`, and full `flutter test`.
 - **Verification Result**: Verified with 0 analyzer issues, 72/72 tests passing across all suites. Fixed the 9.5px and 17px overflow assertions during desktop resizing and unmaximized states.
 
+---
+
+### Task `LIB-003`: Unified Library Actions, Theme Switcher, and About Dialog Integration
+- **Description**: Expose the About Tsuzuri dialog and 3-mode Theme Switcher (System, Light, AMOLED Dark) on the initial Library screen without code duplication. Refactor `ActionsSheet` to support `isLibraryMode: true`, showing "Open Document...", "Add Folder to Library...", "Rescan Library Folders", "About Tsuzuri", and the Theme Switcher, while hiding document-specific actions. Add a More Actions (`...`) button in the `LibraryScreen` header row and ensure theme changes apply immediately and persist across Library, Reader, and Editor modes.
+- **Dependencies**: `LIB-001`, `LIB-002`
+- **Acceptance Criteria**:
+  1. About Tsuzuri opens successfully from the Library screen.
+  2. Theme Switcher is available in Library screen and changing the theme updates the Library immediately.
+  3. Single consistent implementation of theme management (`AppTheme`, `ActionsSheet`) and `TsuzuriAboutDialog` reused.
+  4. Header controls adapt smoothly to mobile and compact widths without overflow.
+  5. `flutter analyze` passes with 0 issues.
+  6. All automated tests pass (79/79 passing).
+- **Status**: `VERIFIED`
+- **Files/Modules**: `lib/src/ui/actions_sheet.dart`, `lib/src/ui/library_screen.dart`, `test/ui/library_screen_test.dart`, `PROJECT_STATUS.md`, `DECISIONS.md`
+- **Verification Method**: `flutter analyze` and `flutter test test/ui/library_screen_test.dart`.
+- **Verification Result**: Verified with 0 analyzer issues and all 13 widget tests in `library_screen_test.dart` passing. ADR-026 recorded.
+
+---
+
+### Task `LIB-004`: Persistent User-Authorized Directory Management and Recursive Markdown Discovery
+- **Description**: Enable Tsuzuri to discover all Markdown documents on Linux and desktop/mobile platforms via user-authorized directory management. Implement persistent authorized directories in `LibraryService` via `SharedPreferences`. Implement recursive directory scanning (`discoverInDirectory()`) traversing subfolders up to depth 4, recognizing supported extensions (`.md`, `.markdown`, `.mdown`, `.mkdn`) case-insensitively, and skipping hidden directories (`.git`, `.cache`, `.config`) and common build caches (`node_modules`, `build`, `.dart_tool`, `.gradle`, `target`). Implement `rescanAll()` merging disk files with existing entries, canonicalizing paths to prevent duplicates, and flagging removed files as inaccessible without data loss. Provide "Add Folder..." and "Manage Folders..." in the UI.
+- **Dependencies**: `LIB-001`, `LIB-003`
+- **Acceptance Criteria**:
+  1. Users can add directories to the Library on Linux via native folder pickers.
+  2. Authorized directories persist across application restarts.
+  3. Recursive discovery scans subfolders and indexes all supported Markdown extensions case-insensitively.
+  4. Hidden and noisy build directories are excluded.
+  5. Library synchronization merges discovered files with manually opened files without duplicates.
+  6. Removed files are flagged as inaccessible without data loss.
+  7. "Manage Folders..." dialog allows reviewing and removing authorized directories.
+  8. `flutter analyze` passes with 0 issues.
+  9. All automated unit and widget tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `lib/src/services/library_service.dart`, `lib/src/ui/library_screen.dart`, `test/services/library_service_test.dart`, `test/ui/library_screen_test.dart`, `PROJECT_STATUS.md`, `DECISIONS.md`
+- **Verification Method**: `flutter analyze` and `flutter test test/services/library_service_test.dart`.
+- **Verification Result**: Verified with 0 analyzer issues and all 10 unit tests in `library_service_test.dart` passing. ADR-026 recorded.
+
+---
+
+### Task `RENDER-008`: In-WebView Responsive TOC Panel on Linux and Universal Viewport Accessibility
+- **Description**: Resolve Table of Contents (TOC) layout disruption and airspace occlusion on Linux desktop and narrow viewports. On Linux desktop WebKitGTK, opening the TOC previously shrank the webview by 304px, shifting the document canvas to the left. On mobile widths (< 681px), Flutter's native `endDrawer` was occluded behind the WebKitGTK native child window, and on viewports < 360px the TOC button was conditionally hidden in `AppHeader`. Embed an in-webview `#toc-panel` and `#toc-backdrop` inside `template.html` and `renderer.css`, route TOC opening to `ReaderView.openTocPanel()` via JavaScript bridge with `rightInset: 0.0` (zero document displacement), and unconditionally expose the TOC button across all viewports.
+- **Dependencies**: `CORE-004`, `ARCH-007`
+- **Acceptance Criteria**:
+  1. Opening TOC in Reader view on Linux does not displace the document or reduce webview width.
+  2. TOC overlay renders cleanly on top of the typeset document with theme styling and backdrop blur.
+  3. Clicking heading jumps to anchor via smooth scrolling and closes the panel.
+  4. TOC button is unconditionally visible and accessible in `AppHeader` across all viewports including < 360px.
+  5. TOC is also accessible via the Actions sheet menu.
+  6. `flutter analyze` passes with 0 issues.
+  7. All automated unit, widget, and responsive layout tests pass.
+- **Status**: `VERIFIED`
+- **Files/Modules**: `assets/renderer/template.html`, `assets/renderer/renderer.css`, `lib/src/renderer/reader_view.dart`, `lib/src/ui/app_header.dart`, `lib/src/ui/app_shell.dart`, `test/ui/responsive_layout_test.dart`, `PROJECT_STATUS.md`, `DECISIONS.md`, `KNOWN_ISSUES.md`
+- **Verification Method**: `flutter analyze` and `flutter test test/ui/responsive_layout_test.dart`.
+- **Verification Result**: Verified with 0 analyzer issues, 7/7 responsive layout viewports passing with TOC button presence at 320px, and 79/79 tests passing overall. ADR-026 recorded.
+
+
 
 
 

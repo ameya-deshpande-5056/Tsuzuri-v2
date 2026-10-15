@@ -33,6 +33,9 @@ void main() {
         expect(find.text('Reader'), findsOneWidget);
       }
 
+      // Verify Table of Contents button is accessible at all viewports (including 320px)
+      expect(find.byTooltip('Table of Contents'), findsOneWidget);
+
       // 2. Switch to Editor view at this width
       final switchBtn = find.byTooltip('Switch to Editor (Ctrl+E)');
       await tester.tap(switchBtn);
@@ -44,6 +47,9 @@ void main() {
         expect(find.text('Editor'), findsOneWidget);
       }
       expect(find.byType(TextField), findsOneWidget);
+
+      // Table of Contents remains accessible in editor view
+      expect(find.byTooltip('Table of Contents'), findsOneWidget);
 
       // 3. Switch back to Reader view
       final readerBtn = find.byTooltip('Switch to Reader (Ctrl+E)');

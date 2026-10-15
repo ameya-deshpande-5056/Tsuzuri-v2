@@ -658,6 +658,35 @@
   - `flutter test`: All 68 unit, widget, responsive, and regression tests passed.
   - `flutter build linux --debug`: Built cleanly.
 
+---
+
+## ADR-026: In-WebView Table of Contents (TOC) Overlay, Authorized Directory Recursive Indexing, and Unified Library Actions/Theme Switcher
+- **Status**: Implemented & Verified
+- **Date**: 2026-10-15
+- **Context**:
+  1. The initial Library screen lacked About Tsuzuri and Theme Switcher controls; users launching the application into Library mode could not change the app theme (System / Light / AMOLED Dark) or view app information without opening a document first.
+  2. On Linux, the Library previously only indexed documents opened manually; users required the ability to authorize directories, discover all Markdown documents (`.md`, `.markdown`, `.mdown`, `.mkdn`) recursively while skipping build/hidden folders, and keep entries synchronized on refresh without file duplication.
+  3. Opening the Table of Contents (TOC) on Linux desktop pushed the Reader document 304px to the left, was hidden entirely on narrow viewports (<360px), and on Linux desktop WebKitGTK airspace occluded Flutter's native `endDrawer` on widths < 681px.
+- **Decisions**:
+  1. **Unified Library Actions & Theme Control**:
+     - Extended `ActionsSheet` with `isLibraryMode: true`, exposing "Open Document...", "Add Folder to Library...", "Rescan Library Folders", "About Tsuzuri", and the 3-mode Theme Switcher (System, Light, AMOLED Dark).
+     - Added a More Actions (`...`) button in the `LibraryScreen` header row.
+     - Tapping theme buttons immediately reflects theme selection and invokes `onThemeChanged` synchronously across the entire app shell and library.
+  2. **Authorized Directory Management & Recursive Markdown Discovery**:
+     - Implemented persistent authorized directories in `LibraryService` via `SharedPreferences`.
+     - Added recursive directory discovery (`discoverInDirectory()`) traversing subfolders up to depth 4, recognizing supported extensions case-insensitively, and skipping hidden directories (`.git`, `.config`, `.cache`) and dependency/build artifacts (`node_modules`, `build`, `.dart_tool`, `.gradle`, `target`).
+     - Added `rescanAll()` merging disk files with existing entries, canonicalizing paths to prevent duplicates, and flagging removed files as inaccessible without data loss.
+     - Added "Add Folder..." and "Manage Folders..." in the Add menu.
+  3. **In-WebView Responsive TOC Panel on Linux (Zero-Blur & Zero-Displacement)**:
+     - Following ADR-011 and ADR-017, embedded `#toc-backdrop` and `<aside id="toc-panel">` directly inside `template.html` and `renderer.css`.
+     - In Linux Reader view, opening the TOC routes to `ReaderView.openTocPanel()` via the JavaScript bridge, with zero window width reduction (`rightInset: 0.0`), preventing document text reflow or layout displacement.
+     - Styled `.toc-backdrop` with `background-color: transparent` and `backdrop-filter: none`, eliminating full-screen modal blur and dimming so the typeset document remains 100% visible and sharp behind the sliding Contents panel, in exact parity with the Actions popover.
+     - Unconditionally exposed the Table of Contents button in `AppHeader` across all viewports including narrow mobile widths (<360px), and added TOC shortcut to the Actions sheet.
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: 79/79 automated unit, widget, and responsive tests passed.
+
+
 
 
 

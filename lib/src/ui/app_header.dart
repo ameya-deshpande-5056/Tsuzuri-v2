@@ -121,15 +121,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        // TOC Button (shown on width >= 360)
-        if (!isVeryCompact)
-          _buildActionButton(
-            tooltip: 'Table of Contents',
-            icon: const Icon(Icons.toc_outlined, size: 21),
-            isCompact: isCompact,
-            rightOffset: 138,
-            onPressed: onOpenToc,
-          ),
+        // TOC Button (accessible across all viewports including narrow screens)
+        _buildActionButton(
+          tooltip: 'Table of Contents',
+          icon: const Icon(Icons.toc_outlined, size: 21),
+          isCompact: isCompact,
+          rightOffset: 138,
+          onPressed: onOpenToc,
+        ),
 
         // Save Button (shown on width >= 480; accessible via More menu on smaller screens)
         if (!isCompact)

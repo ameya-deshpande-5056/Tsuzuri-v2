@@ -215,5 +215,119 @@ void main() => print('Hello');
 
       await tempDir.delete(recursive: true);
     });
+
+    test('Authorized directories persistence, addition, and removal', () async {
+      // Initially empty
+      var dirs = await LibraryService.loadAuthorizedDirectories();
+      expect(dirs, isEmpty);
+
+      // Add a directory
+      dirs = await LibraryService.addAuthorizedDirectory('/home/user/notes');
+      expect(dirs, contains('/home/user/notes'));
+
+      // Add duplicate directory
+      dirs = await LibraryService.addAuthorizedDirectory('/home/user/notes');
+      expect(dirs.length, 1);
+
+      // Add second directory
+      dirs = await LibraryService.addAuthorizedDirectory('/home/user/documents');
+      expect(dirs.length, 2);
+
+      // Verify persisted in SharedPreferences
+      final reloaded = await LibraryService.loadAuthorizedDirectories();
+      expect(reloaded, containsAll(['/home/user/notes', '/home/user/documents']));
+
+      // Remove directory
+      dirs = await LibraryService.removeAuthorizedDirectory('/home/user/notes');
+      expect(dirs.length, 1);
+      expect(dirs, contains('/home/user/documents'));
+      expect(dirs, isNot(contains('/home/user/notes')));
+    });
+
+    test('discoverInDirectory recursively discovers all supported Markdown files and ignores hidden/build dirs', () async {
+      final tempDir = await Directory.systemTemp.createTemp('tsuzuri_discovery_test_');
+      try {
+        // Create nested directories
+        final subDir1 = Directory('${tempDir.path}/sub1')..createSync();
+        final subDir2 = Directory('${tempDir.path}/sub1/nested')..createSync();
+        final gitDir = Directory('${tempDir.path}/.git')..createSync();
+        final nodeModules = Directory('${tempDir.path}/node_modules')..createSync();
+        final hiddenDir = Directory('${tempDir.path}/.config')..createSync();
+
+        // Create supported markdown files
+        final f1 = File('${tempDir.path}/root.md')..writeAsStringSync('# Root');
+        final f2 = File('${subDir1.path}/doc1.markdown')..writeAsStringSync('# Doc 1');
+        final f3 = File('${subDir2.path}/doc2.mdown')..writeAsStringSync('# Doc 2');
+        final f4 = File('${subDir2.path}/doc3.mkdn')..writeAsStringSync('# Doc 3');
+
+        // Create unsupported and ignored files
+        File('${tempDir.path}/root.txt').writeAsStringSync('text');
+        File('${gitDir.path}/commit.md').writeAsStringSync('git md');
+        File('${nodeModules.path}/readme.md').writeAsStringSync('npm md');
+        File('${hiddenDir.path}/secret.md').writeAsStringSync('hidden md');
+        File('${tempDir.path}/.hidden_file.md').writeAsStringSync('dotfile');
+
+        final discovered = await LibraryService.discoverInDirectory(tempDir.path);
+        final discoveredPaths = discovered.toSet();
+
+        expect(discoveredPaths, contains(f1.path));
+        expect(discoveredPaths, contains(f2.path));
+        expect(discoveredPaths, contains(f3.path));
+        expect(discoveredPaths, contains(f4.path));
+
+        // Ensure hidden, git, node_modules, and non-markdown files are excluded
+        expect(discoveredPaths.any((p) => p.contains('.git')), isFalse);
+        expect(discoveredPaths.any((p) => p.contains('node_modules')), isFalse);
+        expect(discoveredPaths.any((p) => p.contains('.config')), isFalse);
+        expect(discoveredPaths.any((p) => p.contains('.hidden_file')), isFalse);
+        expect(discoveredPaths.any((p) => p.endsWith('.txt')), isFalse);
+        expect(discovered.length, 4);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('rescanAll combines current entries with authorized directory scans and flags missing files', () async {
+      final tempDir = await Directory.systemTemp.createTemp('tsuzuri_rescan_test_');
+      try {
+        final existingFile = File('${tempDir.path}/file_a.md')..writeAsStringSync('# File A');
+        final newFile = File('${tempDir.path}/file_b.markdown')..writeAsStringSync('# File B');
+        const nonExistentPath = '/mock/deleted/file_c.md';
+
+        // Set authorized directories
+        await LibraryService.saveAuthorizedDirectories([tempDir.path]);
+
+        // Current entries have file_a and nonExistentPath
+        final currentEntries = [
+          LibraryEntry(
+            filePath: existingFile.path,
+            filename: 'file_a.md',
+            addedAtMs: 1000,
+          ),
+          const LibraryEntry(
+            filePath: nonExistentPath,
+            filename: 'file_c.md',
+            addedAtMs: 2000,
+          ),
+        ];
+
+        final result = await LibraryService.rescanAll(currentEntries);
+        expect(result.scannedFolders, 1);
+        expect(result.newlyAdded, 1); // file_b.markdown was added
+        expect(result.inaccessibleCount, 1); // file_c.md was flagged inaccessible
+        expect(result.totalEntries, 3);
+
+        final reloaded = await LibraryService.loadEntries();
+        final finalPaths = reloaded.map((e) => e.filePath).toSet();
+        expect(finalPaths, contains(existingFile.path));
+        expect(finalPaths, contains(newFile.path));
+        expect(finalPaths, contains(nonExistentPath));
+
+        final inaccessibleEntry = reloaded.firstWhere((e) => e.filePath == nonExistentPath);
+        expect(inaccessibleEntry.isAccessible, isFalse);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
   });
 }

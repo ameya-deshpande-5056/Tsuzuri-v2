@@ -8,29 +8,37 @@ import 'about_dialog.dart';
 /// matching Chrome, Firefox, and Tauri-based Tsuzuri v1.
 /// On mobile viewports (< 681px), renders as a bottom sheet with a grab handle.
 class ActionsSheet extends StatefulWidget {
+  final bool isLibraryMode;
   final bool isEditorMode;
   final bool wordWrap;
   final ThemeMode currentThemeMode;
-  final VoidCallback onToggleMode;
-  final VoidCallback onOpenFile;
-  final VoidCallback onSaveFile;
-  final VoidCallback onSaveAsFile;
-  final VoidCallback onToggleFindReplace;
-  final VoidCallback onToggleWordWrap;
+  final VoidCallback? onToggleMode;
+  final VoidCallback? onOpenFile;
+  final VoidCallback? onSaveFile;
+  final VoidCallback? onSaveAsFile;
+  final VoidCallback? onToggleFindReplace;
+  final VoidCallback? onToggleWordWrap;
+  final VoidCallback? onOpenToc;
+  final VoidCallback? onAddFolder;
+  final VoidCallback? onRescanLibrary;
   final ValueChanged<ThemeMode> onThemeChanged;
   final VoidCallback? onOpenAbout;
 
   const ActionsSheet({
     super.key,
-    required this.isEditorMode,
-    required this.wordWrap,
+    this.isLibraryMode = false,
+    this.isEditorMode = false,
+    this.wordWrap = true,
     required this.currentThemeMode,
-    required this.onToggleMode,
-    required this.onOpenFile,
-    required this.onSaveFile,
-    required this.onSaveAsFile,
-    required this.onToggleFindReplace,
-    required this.onToggleWordWrap,
+    this.onToggleMode,
+    this.onOpenFile,
+    this.onSaveFile,
+    this.onSaveAsFile,
+    this.onToggleFindReplace,
+    this.onToggleWordWrap,
+    this.onOpenToc,
+    this.onAddFolder,
+    this.onRescanLibrary,
     required this.onThemeChanged,
     this.onOpenAbout,
   });
@@ -170,7 +178,7 @@ class _ActionsSheetState extends State<ActionsSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Document Actions',
+                      widget.isLibraryMode ? 'Library Actions' : 'Document Actions',
                       style: TextStyle(
                         fontSize: isDesktop ? 14 : 16,
                         fontWeight: FontWeight.bold,
@@ -188,71 +196,125 @@ class _ActionsSheetState extends State<ActionsSheet> {
               const SizedBox(height: 10),
 
               // Action Items
-              _buildActionItem(
-                context,
-                icon: widget.isEditorMode ? Icons.auto_stories_outlined : Icons.edit_note_outlined,
-                label: widget.isEditorMode ? 'Switch to Reader' : 'Switch to Editor',
-                shortcut: 'Ctrl+E',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  widget.onToggleMode();
-                },
-              ),
+              if (widget.isLibraryMode) ...[
+                if (widget.onOpenFile != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.description_outlined,
+                    label: 'Open Document...',
+                    shortcut: 'Ctrl+O',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onOpenFile!();
+                    },
+                  ),
+                if (widget.onAddFolder != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.create_new_folder_outlined,
+                    label: 'Add Folder to Library...',
+                    shortcut: null,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onAddFolder!();
+                    },
+                  ),
+                if (widget.onRescanLibrary != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.sync,
+                    label: 'Rescan Library Folders',
+                    shortcut: null,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onRescanLibrary!();
+                    },
+                  ),
+              ] else ...[
+                if (widget.onToggleMode != null)
+                  _buildActionItem(
+                    context,
+                    icon: widget.isEditorMode ? Icons.auto_stories_outlined : Icons.edit_note_outlined,
+                    label: widget.isEditorMode ? 'Switch to Reader' : 'Switch to Editor',
+                    shortcut: 'Ctrl+E',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onToggleMode!();
+                    },
+                  ),
 
-              _buildActionItem(
-                context,
-                icon: Icons.folder_open_outlined,
-                label: 'Open Document...',
-                shortcut: 'Ctrl+O',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  widget.onOpenFile();
-                },
-              ),
+                if (widget.onOpenToc != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.toc_outlined,
+                    label: 'Table of Contents',
+                    shortcut: null,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onOpenToc!();
+                    },
+                  ),
 
-              _buildActionItem(
-                context,
-                icon: Icons.save_outlined,
-                label: 'Save Document',
-                shortcut: 'Ctrl+S',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  widget.onSaveFile();
-                },
-              ),
+                if (widget.onOpenFile != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.folder_open_outlined,
+                    label: 'Open Document...',
+                    shortcut: 'Ctrl+O',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onOpenFile!();
+                    },
+                  ),
 
-              _buildActionItem(
-                context,
-                icon: Icons.save_as_outlined,
-                label: 'Save As...',
-                shortcut: 'Ctrl+Shift+S',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  widget.onSaveAsFile();
-                },
-              ),
+                if (widget.onSaveFile != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.save_outlined,
+                    label: 'Save Document',
+                    shortcut: 'Ctrl+S',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onSaveFile!();
+                    },
+                  ),
 
-              if (widget.isEditorMode) ...[
-                _buildActionItem(
-                  context,
-                  icon: Icons.search_outlined,
-                  label: 'Find & Replace',
-                  shortcut: 'Ctrl+F',
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    widget.onToggleFindReplace();
-                  },
-                ),
-                _buildActionItem(
-                  context,
-                  icon: Icons.wrap_text_outlined,
-                  label: 'Word Wrap: ${widget.wordWrap ? "On" : "Off"}',
-                  shortcut: 'Alt+Z',
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    widget.onToggleWordWrap();
-                  },
-                ),
+                if (widget.onSaveAsFile != null)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.save_as_outlined,
+                    label: 'Save As...',
+                    shortcut: 'Ctrl+Shift+S',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onSaveAsFile!();
+                    },
+                  ),
+
+                if (widget.isEditorMode) ...[
+                  if (widget.onToggleFindReplace != null)
+                    _buildActionItem(
+                      context,
+                      icon: Icons.search_outlined,
+                      label: 'Find & Replace',
+                      shortcut: 'Ctrl+F',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        widget.onToggleFindReplace!();
+                      },
+                    ),
+                  if (widget.onToggleWordWrap != null)
+                    _buildActionItem(
+                      context,
+                      icon: Icons.wrap_text_outlined,
+                      label: 'Word Wrap: ${widget.wordWrap ? "On" : "Off"}',
+                      shortcut: 'Alt+Z',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        widget.onToggleWordWrap!();
+                      },
+                    ),
+                ],
               ],
 
               _buildActionItem(

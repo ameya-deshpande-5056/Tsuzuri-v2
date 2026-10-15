@@ -10,10 +10,10 @@
   - Android SDK 37.0.0 (all licenses accepted; Gradle memory envelope strictly capped guaranteeing >= 4GB free RAM). Chrome 154 available.
 
 ## 2. Current Progress & Calculation
-- **Overall Completion**: **100.0%** (44 of 44 tasks verified)
+- **Overall Completion**: **100.0%** (47 of 47 tasks verified)
 - **Calculation Method**: `Task Completion % = (VERIFIED Tasks / Total Tasks) * 100` (Implemented but unverified tasks count as 0%).
 - **Current Phase**: **Phase 7: Library & Document Discovery (COMPLETED)**
-- **Active Task**: `LIB-002`: Document Thumbnail Responsive Page Boundary Clipping & RenderFlex Overflow Elimination (`VERIFIED`).
+- **Active Task**: `RENDER-008`: In-WebView Responsive TOC Panel on Linux and Universal Viewport Accessibility (`VERIFIED`).
 
 ## 3. Status by Phase
 | Phase | Title | Status | Completion |
@@ -25,7 +25,7 @@
 | **Phase 4** | Rendering Compatibility & Hardening | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 5** | Cross-Platform Verification | `COMPLETED` | 3 / 3 (100%) |
 | **Phase 6** | Finalization & Documentation | `COMPLETED` | 15 / 15 (100%) |
-| **Phase 7** | Library & Document Discovery | `COMPLETED` | 2 / 2 (100%) |
+| **Phase 7** | Library & Document Discovery | `COMPLETED` | 5 / 5 (100%) |
 
 ## 4. Completed & Verified Work
 - `PHASE0-001`: Inspected all 3 reference repositories (`Tsuzuri`, `md-latex-mermaid2pdf`, `GATE_DA`). Established rendering and UI baselines.
@@ -73,10 +73,13 @@
 - `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge. Implemented dynamic editor line-wrap gutter synchronization via `StrutStyle(forceStrutHeight: true)` and cached `TextPainter` measurements matching reference project `md-latex-mermaid2pdf`, resolving line number misalignment and Android vertical drift. Switched cursor position tracking to `selection.extentOffset`. Swapped conditional view mounting with persistent `Offstage` + `TickerMode` stack in `AppShell`, eliminating cold-start blank screen flash on mode toggle. Implemented in-webview header action tooltip bridge (`#header-tooltip`) over WebKitGTK on Linux. Optimized keystroke dirty-state triggering to maintain 60fps typing responsiveness.
 - `LIB-001`: Initial Library Screen & Document Thumbnail Gallery Grid. Implemented initial Library screen as primary application entry point. Structured browsing experience as a responsive document gallery grid modeled after note galleries like Mi Canvas. Permanently anchored dedicated "New Document" tile with prominent `+` at index 0 regardless of sort mode, prompting for filename (validating `.md`, `.markdown`, `.mdown`, `.mkdn`), writing atomic initial markdown content, registering in library, and navigating directly into Editor mode. Implemented lightweight `ThumbnailService` and `DocumentThumbnail` miniature sheet-of-paper previews reading only opening snippets (~3KB) with in-memory LRU cache (250 entries) and safe fallback badges for LaTeX (`[Formula]`) and Mermaid diagrams (`[Mermaid Diagram]`). Integrated real-time search, multi-field sorting, context menus (Open in Reader, Open in Editor, safe Remove from Library), and responsive layout across all 7 required viewports (320px to 1920px) with 0 RenderFlex overflow errors.
 - `LIB-002`: Document Thumbnail Responsive Page Boundary Clipping & RenderFlex Overflow Elimination. Diagnosed root cause of RenderFlex overflow assertions during Linux desktop window unmaximized and resizing states (9.5px and 17px overflow on Column in `DocumentThumbnail`). Replaced unconstrained inner flex measurement with bounded `Stack(fit: StackFit.expand)`, `ClipRect`, and `OverflowBox(alignment: Alignment.topLeft, minWidth: 0, minHeight: 0, maxHeight: double.infinity)`. Miniature document preview blocks lay out naturally starting from the top, wrap cleanly within paper width minus padding, and clip strictly at the visible page boundary without scrolling overhead or layout assertions. Verified across unmaximized (800x600, 750x580, 680x520, 550x480), maximized (1920x1080), and continuous dynamic resizing tests. 72/72 tests passing with 0 flutter analyze warnings.
+- `LIB-003`: Unified Library Actions, Theme Switcher, and About Dialog Integration. Exposed the About Tsuzuri dialog and 3-mode Theme Switcher (System, Light, AMOLED Dark) on the initial Library screen without code duplication. Refactored `ActionsSheet` with `isLibraryMode: true`, showing "Open Document...", "Add Folder to Library...", "Rescan Library Folders", "About Tsuzuri", and the Theme Switcher. Added a More Actions (`...`) button in the `LibraryScreen` header row and verified theme changes apply immediately and synchronously across the entire app shell and library.
+- `LIB-004`: Persistent User-Authorized Directory Management and Recursive Markdown Discovery. Implemented persistent authorized directories in `LibraryService` via `SharedPreferences`. Added recursive directory discovery (`discoverInDirectory()`) traversing subfolders up to depth 4, recognizing supported extensions (`.md`, `.markdown`, `.mdown`, `.mkdn`) case-insensitively, and skipping hidden directories (`.git`, `.cache`, `.config`) and common build caches (`node_modules`, `build`, `.dart_tool`, `.gradle`, `target`). Implemented `rescanAll()` merging disk files with existing entries, canonicalizing paths to prevent duplicates, and flagging removed files as inaccessible without data loss. Added "Add Folder..." and "Manage Folders..." in the Add menu.
+- `RENDER-008`: In-WebView Responsive TOC Panel on Linux and Universal Viewport Accessibility. Resolved Table of Contents (TOC) layout disruption and airspace occlusion on Linux desktop and narrow viewports. On Linux desktop WebKitGTK, opening the TOC previously shrank the webview by 304px, shifting the document canvas to the left. On mobile widths (< 681px), Flutter's native `endDrawer` was occluded behind the WebKitGTK native child window, and on viewports < 360px the TOC button was conditionally hidden in `AppHeader`. Embedded an in-webview `#toc-panel` and `#toc-backdrop` inside `template.html` and `renderer.css`, routed TOC opening to `ReaderView.openTocPanel()` via JavaScript bridge with `rightInset: 0.0` (zero document displacement), and unconditionally exposed the TOC button across all viewports.
 
 ## 5. Verification Records
 - `flutter analyze`: Passed with 0 issues found.
-- `flutter test`: All 68 unit, widget, responsive, and regression tests passed.
+- `flutter test`: All 79 unit, widget, responsive, and regression tests passed.
 - `flutter build linux --release`: `✓ Built build/linux/x64/release/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build linux --debug`: `✓ Built build/linux/x64/debug/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build web --release`: `✓ Built build/web`.

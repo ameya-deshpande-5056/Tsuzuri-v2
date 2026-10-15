@@ -5,6 +5,8 @@ import '../services/file_service.dart';
 import '../services/library_service.dart';
 import '../services/thumbnail_service.dart';
 import '../theme/app_theme.dart';
+import 'about_dialog.dart';
+import 'actions_sheet.dart';
 import 'document_thumbnail.dart';
 
 /// The Library screen — Tsuzuri v2's primary entry point.
@@ -37,6 +39,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   List<LibraryEntry> _entries = [];
   List<LibraryEntry> _displayedEntries = [];
+  List<String> _authorizedDirectories = [];
   LibrarySortMode _sortMode = LibrarySortMode.name;
   SortDirection _sortDirection = SortDirection.ascending;
   String _searchQuery = '';
@@ -65,15 +68,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final entries = await LibraryService.loadEntries();
       final sortMode = await LibraryService.loadSortMode();
       final sortDir = await LibraryService.loadSortDirection();
+      final authDirs = await LibraryService.loadAuthorizedDirectories();
       if (mounted) {
         setState(() {
           _entries = entries;
+          _authorizedDirectories = authDirs;
           _sortMode = sortMode;
           _sortDirection = sortDir;
           _isLoading = false;
           _errorMessage = null;
         });
         _updateDisplayedEntries();
+      }
+      // If authorized directories exist, rescan them in background
+      if (authDirs.isNotEmpty) {
+        await LibraryService.rescanAll(entries);
+        if (mounted) {
+          final updated = await LibraryService.loadEntries();
+          setState(() {
+            _entries = updated;
+          });
+          _updateDisplayedEntries();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -233,23 +249,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
     try {
       setState(() => _isLoading = true);
       final discovered = await LibraryService.pickFolderAndDiscover();
+      final authDirs = await LibraryService.loadAuthorizedDirectories();
       if (discovered.isEmpty) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _authorizedDirectories = authDirs;
+          _isLoading = false;
+        });
         if (mounted) {
-          _showToast('No Markdown files found in the selected folder.');
+          _showToast('Folder indexed (no Markdown files currently in folder).');
         }
         return;
       }
 
-      for (final path in discovered) {
-        _entries = await LibraryService.addFile(_entries, path);
+      final scanResult = await LibraryService.rescanAll(_entries);
+      final updated = await LibraryService.loadEntries();
+      if (mounted) {
+        setState(() {
+          _entries = updated;
+          _authorizedDirectories = authDirs;
+          _isLoading = false;
+        });
+        _updateDisplayedEntries();
+        _showToast(
+          'Indexed folder: added ${scanResult.newlyAdded} document${scanResult.newlyAdded == 1 ? '' : 's'} (${scanResult.totalEntries} total).',
+        );
       }
-      setState(() => _isLoading = false);
-      _updateDisplayedEntries();
-      _showToast('Added ${discovered.length} document${discovered.length == 1 ? '' : 's'} to Library.');
     } catch (e) {
-      setState(() => _isLoading = false);
-      _showToast('Error scanning folder: $e', isError: true);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showToast('Error indexing folder: $e', isError: true);
+      }
     }
   }
 
@@ -257,14 +286,149 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() => _isRefreshing = true);
     try {
       ThumbnailService.clearCache();
-      _entries = await LibraryService.refreshEntries(_entries);
-      _updateDisplayedEntries();
+      final scanResult = await LibraryService.rescanAll(_entries);
+      final updated = await LibraryService.loadEntries();
+      final authDirs = await LibraryService.loadAuthorizedDirectories();
+      if (mounted) {
+        setState(() {
+          _entries = updated;
+          _authorizedDirectories = authDirs;
+          _isRefreshing = false;
+        });
+        _updateDisplayedEntries();
+        _showToast(
+          'Library refreshed: ${scanResult.totalEntries} documents (${scanResult.scannedFolders} folders indexed).',
+        );
+      }
     } catch (e) {
-      _showToast('Error refreshing library: $e', isError: true);
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+        _showToast('Error refreshing library: $e', isError: true);
+      }
     }
-    if (mounted) {
-      setState(() => _isRefreshing = false);
-    }
+  }
+
+  Future<void> _openMoreActions() async {
+    await ActionsSheet.show(
+      context,
+      ActionsSheet(
+        isLibraryMode: true,
+        currentThemeMode: widget.currentThemeMode,
+        onThemeChanged: widget.onThemeChanged,
+        onOpenFile: _handleAddFile,
+        onAddFolder: _handleAddFolder,
+        onRescanLibrary: _handleRefresh,
+        onOpenAbout: () => TsuzuriAboutDialog.show(context),
+      ),
+    );
+  }
+
+  Future<void> _showManageFoldersDialog() async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.folder_copy_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text('Indexed Folders'),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tsuzuri automatically scans these folders for Markdown documents (.md, .markdown, .mdown, .mkdn):',
+                      style: TextStyle(fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_authorizedDirectories.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF141418) : const Color(0xFFF2F2F5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'No folders indexed yet.\nAdd a folder to discover documents automatically.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppTheme.amoledTextMuted : AppTheme.lightTextMuted,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: _authorizedDirectories.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1),
+                            itemBuilder: (context, idx) {
+                              final dir = _authorizedDirectories[idx];
+                              return ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                leading: const Icon(Icons.folder_outlined, size: 20),
+                                title: Text(
+                                  p.basename(dir),
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: Text(
+                                  dir,
+                                  style: const TextStyle(fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: IconButton(
+                                  tooltip: 'Remove folder from library',
+                                  icon: const Icon(Icons.delete_outline, size: 18),
+                                  onPressed: () async {
+                                    final updatedDirs = await LibraryService.removeAuthorizedDirectory(dir);
+                                    setState(() => _authorizedDirectories = updatedDirs);
+                                    setDialogState(() {});
+                                    _handleRefresh();
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton.icon(
+                  icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+                  label: const Text('Add Folder'),
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await _handleAddFolder();
+                  },
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Done'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openDocument(LibraryEntry entry, {bool isEditor = false}) async {
@@ -414,6 +578,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildHeader(ThemeData theme, bool isDark, bool isDesktop) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isVeryCompact = screenWidth < 360;
+    final isCompact = screenWidth < 540;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -426,25 +591,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
           // Top row: Brand + actions
           Row(
             children: [
-              Text(
-                '綴り',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: isVeryCompact ? 18 : 20,
-                  letterSpacing: 1.0,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              SizedBox(width: isVeryCompact ? 6 : 10),
-              Text(
-                'Library',
-                style: TextStyle(
-                  fontSize: isVeryCompact ? 14 : 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? AppTheme.amoledTextSecondary
-                      : AppTheme.lightTextSecondary,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '綴り',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isVeryCompact ? 18 : 20,
+                      letterSpacing: 1.0,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  SizedBox(width: isVeryCompact ? 6 : 10),
+                  Text(
+                    'Library',
+                    style: TextStyle(
+                      fontSize: isVeryCompact ? 14 : 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppTheme.amoledTextSecondary
+                          : AppTheme.lightTextSecondary,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               if (_isRefreshing)
@@ -457,12 +627,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 IconButton(
                   tooltip: 'Refresh Library',
                   icon: const Icon(Icons.refresh, size: 20),
-                  padding: isVeryCompact ? const EdgeInsets.all(4) : null,
-                  constraints: isVeryCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+                  padding: isCompact ? const EdgeInsets.all(4) : null,
+                  constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
                   onPressed: _handleRefresh,
                 ),
-              SizedBox(width: isVeryCompact ? 2 : 4),
-              _buildAddMenu(theme, isDark, isVeryCompact: isVeryCompact),
+              SizedBox(width: isCompact ? 2 : 4),
+              _buildAddMenu(theme, isDark, isCompact: isCompact),
+              SizedBox(width: isCompact ? 2 : 4),
+              IconButton(
+                tooltip: 'More Actions',
+                icon: const Icon(Icons.more_horiz, size: 20),
+                padding: isCompact ? const EdgeInsets.all(4) : null,
+                constraints: isCompact ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+                onPressed: _openMoreActions,
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -479,7 +657,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildAddMenu(ThemeData theme, bool isDark, {bool isVeryCompact = false}) {
+  Widget _buildAddMenu(ThemeData theme, bool isDark, {bool isCompact = false}) {
     return MenuAnchor(
       menuChildren: [
         MenuItemButton(
@@ -497,9 +675,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
           onPressed: _handleAddFolder,
           child: const Text('Add Folder...'),
         ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.folder_copy_outlined, size: 18),
+          onPressed: _showManageFoldersDialog,
+          child: const Text('Manage Folders...'),
+        ),
       ],
       builder: (context, controller, child) {
-        if (isVeryCompact) {
+        if (isCompact) {
           return IconButton.filled(
             tooltip: 'Add / Create Document',
             onPressed: () {

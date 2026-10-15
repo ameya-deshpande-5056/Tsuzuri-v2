@@ -391,5 +391,135 @@ void main() {
         expect(find.text('New document'), findsOneWidget, reason: 'New document tile missing at ${size.width}x${size.height}');
       }
     });
+
+    testWidgets('Library screen More Actions exposes Theme Switcher and About Tsuzuri',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpAndSettle();
+
+      // Find More Actions button in library header
+      final moreActionsBtn = find.byTooltip('More Actions');
+      expect(moreActionsBtn, findsOneWidget);
+
+      await tester.tap(moreActionsBtn);
+      await tester.pumpAndSettle();
+
+      // Verify ActionsSheet opens in library mode
+      expect(find.text('Library Actions'), findsOneWidget);
+      expect(find.text('Open Document...'), findsOneWidget);
+      expect(find.text('Add Folder to Library...'), findsOneWidget);
+      expect(find.text('Rescan Library Folders'), findsOneWidget);
+      expect(find.text('About Tsuzuri'), findsOneWidget);
+
+      // Verify Theme Switcher buttons
+      expect(find.text('System'), findsOneWidget);
+      expect(find.text('Light'), findsOneWidget);
+      expect(find.text('AMOLED Dark'), findsOneWidget);
+
+      // Document-specific actions must NOT be present
+      expect(find.text('Table of Contents'), findsNothing);
+      expect(find.text('Find & Replace'), findsNothing);
+    });
+
+    testWidgets('Theme Switcher from Library screen updates app theme immediately',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpAndSettle();
+
+      // Open More Actions
+      await tester.tap(find.byTooltip('More Actions'));
+      await tester.pumpAndSettle();
+
+      // Tap Light theme
+      await tester.tap(find.text('Light'));
+      await tester.pumpAndSettle();
+
+      // Verify MaterialApp updated to light brightness
+      final materialAppLight = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(materialAppLight.themeMode, ThemeMode.light);
+
+      // Tap AMOLED Dark theme in the same open sheet
+      await tester.tap(find.text('AMOLED Dark'));
+      await tester.pumpAndSettle();
+
+      final materialAppDark = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(materialAppDark.themeMode, ThemeMode.dark);
+    });
+
+    testWidgets('About Tsuzuri dialog opens cleanly from Library screen',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpAndSettle();
+
+      // Open More Actions
+      await tester.tap(find.byTooltip('More Actions'));
+      await tester.pumpAndSettle();
+
+      // Tap About Tsuzuri
+      await tester.tap(find.text('About Tsuzuri'));
+      await tester.pumpAndSettle();
+
+      // Verify About Dialog content
+      expect(find.text('About Tsuzuri'), findsOneWidget);
+      expect(find.textContaining('Tsuzuri 2.0.0'), findsOneWidget);
+      expect(
+        find.text(
+            'A quiet, lightweight, and offline Markdown document reader and editor.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Manage Folders dialog opens and displays indexed directories',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Seed an authorized directory
+      await LibraryService.saveAuthorizedDirectories(['/home/user/my_markdown_notes']);
+
+      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpAndSettle();
+
+      // Find Add menu (Add document/folder)
+      final addMenuBtn = find.widgetWithText(FilledButton, 'Add');
+      expect(addMenuBtn, findsOneWidget);
+
+      await tester.tap(addMenuBtn);
+      await tester.pumpAndSettle();
+
+      // Tap Manage Folders...
+      expect(find.text('Manage Folders...'), findsOneWidget);
+      await tester.tap(find.text('Manage Folders...'));
+      await tester.pumpAndSettle();
+
+      // Verify dialog
+      expect(find.text('Indexed Folders'), findsOneWidget);
+      expect(find.text('/home/user/my_markdown_notes'), findsOneWidget);
+    });
   });
 }

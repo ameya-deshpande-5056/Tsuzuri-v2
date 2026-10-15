@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_all/webview_all.dart';
 import 'bundled_assets.dart';
 import '../parser/math_delimiter_normalizer.dart';
+import '../parser/toc_parser.dart';
 
 /// Renders a formatted Markdown document with first-class LaTeX and Mermaid support.
 ///
@@ -206,6 +208,29 @@ class ReaderViewState extends State<ReaderView> {
     if (_controller == null) return;
     try {
       await _controller?.runJavaScript('window.hideTooltip();');
+    } catch (_) {}
+  }
+
+  /// Opens the Table of Contents slide-in overlay panel in Reader view.
+  Future<void> openTocPanel(List<TocItem> items) async {
+    if (_controller == null) return;
+    try {
+      final jsonList = items.map((item) => {
+        'level': item.level,
+        'text': item.text,
+        'slug': item.slug,
+      }).toList();
+      final jsonStr = jsonEncode(jsonList);
+      final escaped = _escapeJs(jsonStr);
+      await _controller?.runJavaScript('window.openTocPanel("$escaped");');
+    } catch (_) {}
+  }
+
+  /// Closes the Table of Contents slide-in overlay panel in Reader view.
+  Future<void> closeTocPanel() async {
+    if (_controller == null) return;
+    try {
+      await _controller?.runJavaScript('window.closeTocPanel();');
     } catch (_) {}
   }
 

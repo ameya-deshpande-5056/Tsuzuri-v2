@@ -153,6 +153,15 @@ This document maintains the authoritative log of confirmed defects, platform dif
   - Empty and missing states remain centered within the card.
   - Fully verified across 9 responsive viewport and resizing tests without layout overflow or scrolling overhead.
 
+### 4.8 Table of Contents Document Displacement, Screen Blurring, and Airspace Occlusion on Linux Desktop
+- **Status**: Fully Resolved via ADR-026.
+- **Description**: In Linux Reader view, opening the TOC previously triggered Flutter's native `endDrawer` and applied `rightInset: 304.0` to WebKitGTK on desktop, which displaced the document canvas to the left. When migrated into an in-webview overlay, it initially inherited the About dialog's `modal-backdrop` (`backdrop-filter: blur(4px); background-color: rgba(0, 0, 0, 0.65)`), which blurred and dimmed the entire screen behind the Contents pane.
+- **Resolution**:
+  - Replaced the modal backdrop with `.toc-backdrop` using `background-color: transparent` and `backdrop-filter: none`.
+  - In Linux Reader view, opening TOC communicates via `ReaderView.openTocPanel()`, keeping `rightInset: 0.0` with zero displacement or text reflow of the document, and keeping the document behind the sliding Contents pane 100% visible, sharp, and readable.
+  - TOC button in `AppHeader` is unconditionally visible and accessible across all viewports including narrow screens (< 360px), and Table of Contents is also accessible via `ActionsSheet`.
+
+
 ---
 
 ## 5. Bundle Size & Memory Footprint
