@@ -629,6 +629,53 @@ Implemented but unverified tasks count as 0% towards completion.
 - **Verification Method**: `flutter analyze`, `flutter test`, and `flutter build linux --release`.
 - **Verification Result**: Verified 53/53 tests passing, 0 analyzer issues, clean Linux release compilation, and synchronized line wrapping gutter heights. ADR-024 recorded.
 
+---
+
+### Task `LIB-001`: Initial Library Screen & Document Thumbnail Gallery Grid
+- **Description**: Implement the initial Library screen as Tsuzuri v2's primary launch destination. Redesign the document browsing experience as a visual document gallery similar to note galleries in mobile note-taking apps (e.g. Mi Canvas). Ensure the first tile is permanently reserved as a dedicated "New Document" tile with prominent `+` symbol initiating document creation. Implement lightweight Flutter-native thumbnail generation with LRU caching, reading only opening snippets (~3KB) and formatting headings, paragraphs, lists, code blocks, blockquotes, and restrained badges for LaTeX and Mermaid diagrams without heavy webviews. Integrate search, sorting, context menus (Open in Reader, Open in Editor, Remove from Library), persistent registrations via `shared_preferences`, and responsive column scaling across 320px to 1920px viewports.
+- **Dependencies**: Phase 1-6
+- **Acceptance Criteria**:
+  1. Tsuzuri launches directly into the Library screen (`'/'`) by default.
+  2. First tile in the gallery is always a dedicated "New Document" tile with `+` icon and "New document" label, regardless of sort mode.
+  3. Tapping "New Document" prompts for filename, validates supported extension (`.md`, `.markdown`, `.mdown`, `.mkdn`), lets user pick save path, creates atomic document, registers it in the library, and opens it directly in Editor mode (`initialIsEditorMode: true`).
+  4. Document tiles render miniature paper previews of the document opening with true theme contrast (AMOLED `#000000` and Light `#FCFCFC`).
+  5. Mathematical display equations and Mermaid diagrams display restrained fallback badges (`[Formula]` and `[Mermaid Diagram]`) without blocking grid scrolling.
+  6. Opening snippets are cached in an in-memory LRU cache (up to 250 documents) and invalidated when the file's modified timestamp changes.
+  7. Client-side search filters by filename and directory path in real-time.
+  8. Sorting supports Name, Last Modified, and Recently Opened with Ascending/Descending toggle and visible indicator.
+  9. Context menu provides "Open in Reader", "Open in Editor", "Remove from Library" (with safety confirmation ensuring the underlying file is never deleted).
+  10. Missing/inaccessible files display a clear "Missing" indicator with retry/removal options.
+  11. Responsive layout verified across all 7 required viewports (320px, 375px, 430px, 768px, 1024px, 1440px, 1920px) with 0 RenderFlex overflow errors.
+  12. Existing Reader, Editor, and AppShell functionality preserved.
+  13. `flutter analyze` passes with 0 issues.
+  14. All automated tests pass (68/68 passing).
+- **Status**: `VERIFIED`
+- **Files/Modules**: `lib/main.dart`, `lib/src/models/library_entry.dart`, `lib/src/services/library_service.dart`, `lib/src/services/thumbnail_service.dart`, `lib/src/ui/document_thumbnail.dart`, `lib/src/ui/library_screen.dart`, `lib/src/ui/app_shell.dart`, `lib/src/ui/app_header.dart`, `test/services/library_service_test.dart`, `test/ui/library_screen_test.dart`, `test/widget_test.dart`, `test/ui/responsive_layout_test.dart`, `test/ui/adaptive_actions_menu_test.dart`, `DECISIONS.md`, `KNOWN_ISSUES.md`, `PROJECT_STATUS.md`
+- **Verification Method**: `flutter analyze`, `flutter test`, and `flutter build linux --debug`.
+- **Verification Result**: Verified with 0 analyzer issues, 68/68 tests passing across unit, widget, responsive, and regression test suites, and clean Linux desktop compilation. ADR-025 recorded.
+
+---
+
+### Task `LIB-002`: Document Thumbnail Responsive Page Boundary Clipping & RenderFlex Overflow Elimination
+- **Description**: Resolve Flutter `RenderFlex` overflow errors reported during Linux desktop window unmaximized and continuous resizing states (`A RenderFlex overflowed by 9.5 pixels on the bottom`, and in some layouts 17 pixels). The root cause in `lib/src/ui/document_thumbnail.dart` was an unconstrained flex `Column` placed inside loose/bounded vertical constraints. When a document had multiple opening blocks exceeding the miniature paper card height, `Column` asserted during layout phase despite pixel-level clipping. Fix by binding the paper card dimensions with `Stack(fit: StackFit.expand)` and wrapping document preview content in a combination of `ClipRect` and `OverflowBox(alignment: Alignment.topLeft, minWidth: 0, minHeight: 0, maxHeight: double.infinity)`. The content width remains strictly bounded to paper width minus padding (preserving natural text wrapping), while vertical height is unbounded to the inner `Column`, eliminating layout assertions and clipping exceeding content cleanly at the visible page boundary without scrolling overhead.
+- **Dependencies**: `LIB-001`
+- **Acceptance Criteria**:
+  1. The miniature document preview has a well-defined, bounded height tied to the parent paper card.
+  2. Preview content is clipped cleanly at the thumbnail's visible page boundary without overflowing its bounds.
+  3. Uses standard Flutter layout primitives (`ClipRect`, `OverflowBox`, `Stack(fit: StackFit.expand)`).
+  4. Document title, metadata, and context menu button remain outside the clipped preview area and fully visible.
+  5. Content exceeding the preview area does not trigger any `RenderFlex` overflow assertions under any window dimension.
+  6. Layout recalculates smoothly and dynamically during continuous window resizing and across unmaximized/maximized window states.
+  7. No scrolling is introduced inside static thumbnails.
+  8. Existing thumbnail aesthetics, paper border/shadow, bottom gradient fade, and AMOLED/Light theme contrast are preserved.
+  9. `flutter analyze` passes with 0 issues.
+  10. All automated tests pass (including dedicated continuous resizing and multi-block thumbnail tests).
+- **Status**: `VERIFIED`
+- **Files/Modules**: `lib/src/ui/document_thumbnail.dart`, `lib/src/services/thumbnail_service.dart`, `test/ui/document_thumbnail_test.dart`, `test/ui/library_screen_test.dart`, `PROJECT_STATUS.md`, `KNOWN_ISSUES.md`, `IMPLEMENTATION_PLAN.md`
+- **Verification Method**: `flutter analyze`, `flutter test test/ui/document_thumbnail_test.dart`, `flutter test test/ui/library_screen_test.dart`, and full `flutter test`.
+- **Verification Result**: Verified with 0 analyzer issues, 72/72 tests passing across all suites. Fixed the 9.5px and 17px overflow assertions during desktop resizing and unmaximized states.
+
+
 
 
 

@@ -36,11 +36,13 @@ void main(List<String> args) async {
 class TsuzuriApp extends StatefulWidget {
   final String? initialFilePath;
   final String? initialContent;
+  final String? initialRoute;
 
   const TsuzuriApp({
     super.key,
     this.initialFilePath,
     this.initialContent,
+    this.initialRoute,
   });
 
   @override
@@ -58,8 +60,8 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
 
   @override
   Widget build(BuildContext context) {
-    // If launched with a file argument, go directly to AppShell
-    final hasInitialFile = widget.initialFilePath != null;
+    final effectiveInitialRoute = widget.initialRoute ??
+        (widget.initialFilePath != null ? '/document' : '/');
 
     return MaterialApp(
       title: 'Tsuzuri',
@@ -68,7 +70,7 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
       themeMode: _themeMode,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.amoledDarkTheme,
-      initialRoute: hasInitialFile ? '/document' : '/',
+      initialRoute: effectiveInitialRoute,
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/':
@@ -80,8 +82,18 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
               ),
             );
           case '/document':
-            // Accept file path from either navigation arguments or initial launch
-            final filePath = settings.arguments as String? ?? widget.initialFilePath;
+            final args = settings.arguments;
+            String? filePath;
+            bool isEditor = false;
+            if (args is String) {
+              filePath = args;
+            } else if (args is Map) {
+              filePath = args['filePath'] as String?;
+              isEditor = args['isEditor'] as bool? ?? false;
+            } else {
+              filePath = widget.initialFilePath;
+            }
+
             return MaterialPageRoute(
               settings: settings,
               builder: (_) => AppShell(
@@ -92,6 +104,7 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
                     ? widget.initialContent
                     : null,
                 showBackToLibrary: true,
+                initialIsEditorMode: isEditor,
               ),
             );
           default:

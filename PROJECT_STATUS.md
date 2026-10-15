@@ -10,10 +10,10 @@
   - Android SDK 37.0.0 (all licenses accepted; Gradle memory envelope strictly capped guaranteeing >= 4GB free RAM). Chrome 154 available.
 
 ## 2. Current Progress & Calculation
-- **Overall Completion**: **100.0%** (42 of 42 tasks verified)
+- **Overall Completion**: **100.0%** (44 of 44 tasks verified)
 - **Calculation Method**: `Task Completion % = (VERIFIED Tasks / Total Tasks) * 100` (Implemented but unverified tasks count as 0%).
-- **Current Phase**: **Phase 6: Finalization & Documentation (COMPLETED)**
-- **Active Task**: `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge (`VERIFIED`).
+- **Current Phase**: **Phase 7: Library & Document Discovery (COMPLETED)**
+- **Active Task**: `LIB-002`: Document Thumbnail Responsive Page Boundary Clipping & RenderFlex Overflow Elimination (`VERIFIED`).
 
 ## 3. Status by Phase
 | Phase | Title | Status | Completion |
@@ -25,6 +25,7 @@
 | **Phase 4** | Rendering Compatibility & Hardening | `COMPLETED` | 6 / 6 (100%) |
 | **Phase 5** | Cross-Platform Verification | `COMPLETED` | 3 / 3 (100%) |
 | **Phase 6** | Finalization & Documentation | `COMPLETED` | 15 / 15 (100%) |
+| **Phase 7** | Library & Document Discovery | `COMPLETED` | 2 / 2 (100%) |
 
 ## 4. Completed & Verified Work
 - `PHASE0-001`: Inspected all 3 reference repositories (`Tsuzuri`, `md-latex-mermaid2pdf`, `GATE_DA`). Established rendering and UI baselines.
@@ -70,10 +71,12 @@
 - `CI-003`: Multi-Platform Release Workflow DAG Decoupling & Concurrent Execution. Replaced sequential `needs: release-desktop` dependencies with an independent `create-release` initialization job. Decoupled Desktop, Android (APK/AAB), iOS (IPA), and Web target builds to execute simultaneously in parallel, preventing failures or delays on one platform from causing cascade skips on mobile or web targets. Verified test suite and DAG structure.
 - `CI-004`: Absolute Path Subshell Packaging for macOS, iOS, and Web CI Release Artifacts. Replaced fragile `../../../../` relative traversal in macOS zip packaging with absolute `$WORKSPACE` / `$PWD` paths within isolated subshell `(cd build/macos/Build/Products/Release && zip -r "$WORKSPACE/release-artifacts/..." "$APP_NAME")`. Standardized subshell packaging across Web and iOS release jobs. Verified test suite.
 - `UI-013`: Editor Gutter Line-Wrap Synchronization, Persistent View Stack, and Linux In-WebView Tooltip Bridge. Implemented dynamic editor line-wrap gutter synchronization via `StrutStyle(forceStrutHeight: true)` and cached `TextPainter` measurements matching reference project `md-latex-mermaid2pdf`, resolving line number misalignment and Android vertical drift. Switched cursor position tracking to `selection.extentOffset`. Swapped conditional view mounting with persistent `Offstage` + `TickerMode` stack in `AppShell`, eliminating cold-start blank screen flash on mode toggle. Implemented in-webview header action tooltip bridge (`#header-tooltip`) over WebKitGTK on Linux. Optimized keystroke dirty-state triggering to maintain 60fps typing responsiveness.
+- `LIB-001`: Initial Library Screen & Document Thumbnail Gallery Grid. Implemented initial Library screen as primary application entry point. Structured browsing experience as a responsive document gallery grid modeled after note galleries like Mi Canvas. Permanently anchored dedicated "New Document" tile with prominent `+` at index 0 regardless of sort mode, prompting for filename (validating `.md`, `.markdown`, `.mdown`, `.mkdn`), writing atomic initial markdown content, registering in library, and navigating directly into Editor mode. Implemented lightweight `ThumbnailService` and `DocumentThumbnail` miniature sheet-of-paper previews reading only opening snippets (~3KB) with in-memory LRU cache (250 entries) and safe fallback badges for LaTeX (`[Formula]`) and Mermaid diagrams (`[Mermaid Diagram]`). Integrated real-time search, multi-field sorting, context menus (Open in Reader, Open in Editor, safe Remove from Library), and responsive layout across all 7 required viewports (320px to 1920px) with 0 RenderFlex overflow errors.
+- `LIB-002`: Document Thumbnail Responsive Page Boundary Clipping & RenderFlex Overflow Elimination. Diagnosed root cause of RenderFlex overflow assertions during Linux desktop window unmaximized and resizing states (9.5px and 17px overflow on Column in `DocumentThumbnail`). Replaced unconstrained inner flex measurement with bounded `Stack(fit: StackFit.expand)`, `ClipRect`, and `OverflowBox(alignment: Alignment.topLeft, minWidth: 0, minHeight: 0, maxHeight: double.infinity)`. Miniature document preview blocks lay out naturally starting from the top, wrap cleanly within paper width minus padding, and clip strictly at the visible page boundary without scrolling overhead or layout assertions. Verified across unmaximized (800x600, 750x580, 680x520, 550x480), maximized (1920x1080), and continuous dynamic resizing tests. 72/72 tests passing with 0 flutter analyze warnings.
 
 ## 5. Verification Records
 - `flutter analyze`: Passed with 0 issues found.
-- `flutter test`: All 53 unit, widget, responsive, and regression tests passed.
+- `flutter test`: All 68 unit, widget, responsive, and regression tests passed.
 - `flutter build linux --release`: `✓ Built build/linux/x64/release/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build linux --debug`: `✓ Built build/linux/x64/debug/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build web --release`: `✓ Built build/web`.
@@ -89,12 +92,15 @@
 - Workflow DAG Decoupling Verification: Verified independent `create-release` job allows Desktop, Android, iOS, and Web targets to build concurrently with zero cascade skips upon individual platform failures.
 - macOS Subshell Packaging Verification: Verified absolute workspace directory resolution in isolated subshell eliminates zip I/O error 15, standardizing packaging across macOS, Web, and iOS.
 - Editor Gutter Line-Wrap Synchronization & Persistent Mode Switch Verification: Verified with widget tests that wrapped lines dynamically expand gutter item heights in exact sync with text line wrapping, selection tracking accurately reflects caret position, and persistent Offstage view stack eliminates blank screen cold starts.
-
+- Library Gallery Grid & Native Thumbnail Generation Verification: Verified with 8 comprehensive widget and 7 unit tests that the Library is the initial route, New Document tile is permanently first, document opening previews render within tile bounds, math and mermaid diagrams render safe fallback badges, search and sort operate cleanly, responsive column counts adapt without horizontal overflow across 320px–1920px viewports, and remove actions never delete files.
 
 ## 6. Definition of Done Checklist
 - [x] Application is implemented in Flutter and Dart.
 - [x] Core architecture is documented and maintainable.
 - [x] Reader and Editor are separate, mutually exclusive views.
+- [x] Initial Library screen serves as primary launch route with visual document gallery.
+- [x] Dedicated "New Document" tile is always anchored as the first tile in the gallery.
+- [x] Lightweight Flutter-native document thumbnail previews render opening content without webviews.
 - [x] Markdown support has been tested against the reference baseline.
 - [x] LaTeX delimiters and required mathematical features have been tested.
 - [x] Mermaid diagrams render locally for the documented supported subset.
@@ -124,8 +130,8 @@
 - [x] Another agent can resume development from the persistent project state.
 
 ## 7. Last Updated
-- **Date**: 2026-10-11
-- **Latest Change**: Implemented Task `UI-013`: Editor gutter word-wrap dynamic height synchronization via `StrutStyle` and cached `TextPainter`, persistent `Offstage` + `TickerMode` Reader/Editor view stack eliminating mode switch blank screen flash, in-webview header action button tooltip bridge on Linux desktop over WebKitGTK, and keystroke dirty-state throttling. 53/53 tests passing; 0 analyzer issues. Built clean Linux release binary.
+- **Date**: 2026-10-15
+- **Latest Change**: Implemented Task `LIB-001`: Redesigned Tsuzuri v2 Library screen as a visual Document Thumbnail Gallery Grid with dedicated first "New Document" tile, lightweight Flutter-native opening snippet previews (`DocumentThumbnail` and `ThumbnailService`), LRU caching, math/mermaid fallback badges, responsive layout across 320px–1920px viewports, real-time search, sorting, context menus, and navigation integration. 68/68 tests passing; 0 analyzer issues. Built clean Linux debug binary.
 
 
 

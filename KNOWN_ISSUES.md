@@ -137,6 +137,22 @@ This document maintains the authoritative log of confirmed defects, platform dif
 - **Description**: Switching between Reader and Editor previously destroyed and recreated `ReaderView`, triggering cold-start WebKitGTK initialization and a visible blank flash. Header button tooltips on Linux were occluded by native WebKitGTK child window. Keystroke `_onContentChanged` triggered full `AppShell` rebuilds and TOC re-parsing on every key.
 - **Resolution**: Mounted both views in persistent `Stack` with `Offstage` + `TickerMode`. Added in-webview tooltip bridge (`#header-tooltip`) in WebKitGTK DOM. Restricted `_onContentChanged` rebuilds to dirty-state transitions.
 
+### 4.6 Document Gallery Thumbnail Fallbacks for Mathematical Expressions and Mermaid Diagrams
+- **Status**: By Design / Performance Optimization.
+- **Description**: The primary Reader view uses MathJax/KaTeX and Mermaid.js embedded within WebKitGTK / platform webview to render pixel-perfect math formulas and SVG diagrams. However, rendering tens or hundreds of simultaneous webview instances or asynchronous typesetting promises for gallery thumbnails would cause severe CPU/GPU spikes, high memory footprint, and jerky scroll performance.
+- **Resolution**: `ThumbnailService` deliberately uses lightweight, Flutter-native AST badges (`[Formula]` and `[Mermaid Diagram]`) inside miniature paper cards. Full typesetting is deferred until the user opens the document in the Reader view.
+
+### 4.7 Document Gallery Thumbnail RenderFlex Overflow During Window Resizing & Unmaximized States
+- **Status**: Fully Resolved.
+- **Description**: In `DocumentThumbnail` (`lib/src/ui/document_thumbnail.dart`), document preview blocks were laid out in a flex `Column` placed inside loose/bounded vertical constraints. When a document had multiple blocks or headings that exceeded available thumbnail height, or when the desktop window was resized/unmaximized, Flutter's `RenderFlex` asserted with `A RenderFlex overflowed by 9.5 pixels on the bottom` (or 17 pixels).
+- **Resolution**:
+  - Configured `Stack(fit: StackFit.expand)` in `_buildPaper` to enforce tightly bounded card dimensions.
+  - Wrapped document preview content in a combination of `ClipRect` and `OverflowBox(alignment: Alignment.topLeft, minWidth: 0, minHeight: 0, maxHeight: double.infinity)`.
+  - Content width remains bounded to the thumbnail's paper width minus padding (preserving normal text wrapping), while vertical height is unbounded to the flex `Column`, eliminating all layout assertions.
+  - Exceeding content is clipped strictly and cleanly at the paper's visible boundary, with the bottom gradient overlay fading into the card surface.
+  - Empty and missing states remain centered within the card.
+  - Fully verified across 9 responsive viewport and resizing tests without layout overflow or scrolling overhead.
+
 ---
 
 ## 5. Bundle Size & Memory Footprint

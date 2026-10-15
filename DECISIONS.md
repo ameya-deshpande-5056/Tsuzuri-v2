@@ -621,6 +621,44 @@
   - `flutter test`: 53/53 automated unit, widget, and regression tests passed.
   - `flutter build linux --release`: Built cleanly.
 
+---
+
+## ADR-025: Document Gallery Grid, Native Thumbnail Generation, and Document Creation Architecture
+- **Status**: Implemented & Verified
+- **Date**: 2026-10-15
+- **Context**:
+  - Requirement: Implement an initial Library screen as the primary application entry point, structured as a visual document gallery similar to note galleries in mobile note-taking apps (e.g. Mi Canvas).
+  - Documents must be presented as a responsive grid of miniature paper preview tiles rather than a plain list.
+  - The first tile must always be a dedicated "New Document" tile with a prominent `+` symbol initiating document creation.
+  - The preview must be lightweight, Flutter-native (no WebView instances solely for thumbnails), parsing the opening structure (headings, lists, paragraphs, code, math formulas, diagrams) with safe placeholders.
+  - Features must include full persistence via `shared_preferences`, search, sorting, context menus (Open in Reader, Open in Editor, Remove from Library), and responsive scaling from 320px to 1920px.
+- **Decision & Architecture**:
+  1. **Primary Entry Route & Navigation Decoupling**:
+     - Configured `MaterialApp` with route-based navigation in `main.dart`.
+     - `initialRoute` defaults to `'/'` (rendering `LibraryScreen`).
+     - Passing a file path on launch (CLI argument or OS file intent) or navigating with `initialRoute: '/document'` opens `AppShell`.
+     - `AppShell` includes a back-to-library navigation button (`Icons.arrow_back`) in `AppHeader` when opened from the Library (`showBackToLibrary: true`), guarding unsaved changes prior to popping.
+  2. **Dedicated First Tile ("New Document")**:
+     - The first tile in the gallery grid is permanently reserved for document creation, keeping its position at index 0 regardless of sorting mode.
+     - Features a distinct surface, prominent `+` icon, and concise label.
+     - Tapping opens a creation dialog prompting for document filename (validating `.md`, `.markdown`, `.mdown`, `.mkdn` extensions), lets the user choose save location via `FileService.pickSavePathAndSave`, saves atomic initial markdown content, registers the file in `LibraryService`, and opens it directly in Editor mode (`initialIsEditorMode: true`).
+  3. **Lightweight Native Thumbnail Generation & LRU Cache (`ThumbnailService` & `DocumentThumbnail`)**:
+     - Reads only the first ~3KB of the file asynchronously without full document rendering.
+     - `ThumbnailService.parseSnippet` segments lines into lightweight AST blocks (headings, paragraphs, bullet/numbered lists, code blocks, blockquotes, dividers).
+     - Mathematical display equations and Mermaid diagrams render as restrained, styled badges (`[Formula]` and `[Mermaid Diagram]`), preventing heavyweight typesetting engines or webviews from bogging down grid scrolling.
+     - In-memory LRU cache stores up to 250 thumbnail previews, automatically invalidating when a file's disk `lastModifiedMs` timestamp changes.
+     - Rendered inside `DocumentThumbnail` as a miniature sheet of paper with subtle borders, shadows, clipped overflow, and bottom fade gradient.
+  4. **Responsive Gallery Grid**:
+     - Dynamically computes column count based on available content width: 2 columns on mobile (320px–599px), 3 columns on tablet (600px–899px), 4 columns on desktop (900px–1199px), 5 columns on wide desktop (1200px–1599px), and 6 columns on full HD (>= 1600px).
+     - Maintains consistent tile aspect ratio and spacing without horizontal overflow across all tested viewports (320px to 1920px).
+  5. **Data Safety**:
+     - Context menu "Remove from Library" explicitly prompts user and removes the entry from `shared_preferences` without deleting the underlying disk file.
+- **Verification**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: All 68 unit, widget, responsive, and regression tests passed.
+  - `flutter build linux --debug`: Built cleanly.
+
+
 
 
 

@@ -14,7 +14,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const TsuzuriApp());
+    await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
     await tester.pump(const Duration(milliseconds: 200));
 
     // 1. Verify Header Elements

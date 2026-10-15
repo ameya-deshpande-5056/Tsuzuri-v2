@@ -27,6 +27,7 @@ class AppShell extends StatefulWidget {
   final String? initialFilePath;
   final String? initialContent;
   final bool showBackToLibrary;
+  final bool initialIsEditorMode;
 
   const AppShell({
     super.key,
@@ -35,6 +36,7 @@ class AppShell extends StatefulWidget {
     this.initialFilePath,
     this.initialContent,
     this.showBackToLibrary = false,
+    this.initialIsEditorMode = false,
   });
 
   @override
@@ -70,6 +72,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _isEditorMode = widget.initialIsEditorMode;
     ModalOverlayTracker.instance.hasModalRoute.addListener(_onModalOverlayChanged);
     final content = widget.initialContent ?? _defaultDocument;
     _document = DocumentState(
@@ -392,12 +395,13 @@ class _AppShellState extends State<AppShell> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     onPressed: () async {
+                      final nav = Navigator.of(context);
                       if (_document.isDirty) {
                         final proceed = await _confirmDiscardUnsavedChanges();
                         if (!proceed) return;
                       }
                       if (mounted) {
-                        Navigator.of(context).pop();
+                        nav.pop();
                       }
                     },
                   )

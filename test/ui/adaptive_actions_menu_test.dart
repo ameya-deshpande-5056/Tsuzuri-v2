@@ -15,7 +15,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       final moreBtn = find.byTooltip('More Actions');
@@ -47,7 +47,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       final moreBtn = find.byTooltip('More Actions');
@@ -77,7 +77,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       // Switch to editor mode
@@ -111,7 +111,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       // Initially in Reader view, rightInset is 0 and isDialogActive is false
@@ -149,7 +149,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       // Open More Actions
@@ -206,7 +206,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       expect(find.byType(ReaderView), findsOneWidget);

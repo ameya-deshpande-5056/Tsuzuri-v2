@@ -23,7 +23,7 @@ void main() {
       });
 
       // 1. Build TsuzuriApp in Reader view
-      await tester.pumpWidget(const TsuzuriApp());
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
       await tester.pump(const Duration(milliseconds: 150));
 
       // Verify no overflow errors
