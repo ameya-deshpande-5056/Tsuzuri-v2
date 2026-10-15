@@ -19,6 +19,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onMoreActions;
   final void Function(String text, double rightOffset)? onShowTooltip;
   final VoidCallback? onHideTooltip;
+  final Widget? leading;
 
   const AppHeader({
     super.key,
@@ -31,6 +32,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.onMoreActions,
     this.onShowTooltip,
     this.onHideTooltip,
+    this.leading,
   });
 
   @override
@@ -47,9 +49,12 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       toolbarHeight: 48,
-      titleSpacing: isVeryCompact ? 8 : 16,
+      titleSpacing: isVeryCompact ? 8 : (leading != null ? 4 : 16),
       elevation: 0,
       scrolledUnderElevation: 0,
+      leading: leading,
+      automaticallyImplyLeading: false,
+      leadingWidth: leading != null ? 40 : 0,
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

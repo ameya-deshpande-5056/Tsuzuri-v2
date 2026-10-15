@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'src/services/library_service.dart';
 import 'src/theme/app_theme.dart';
 import 'src/ui/app_shell.dart';
+import 'src/ui/library_screen.dart';
 import 'src/ui/modal_overlay_tracker.dart';
 
 void main(List<String> args) async {
@@ -17,6 +19,9 @@ void main(List<String> args) async {
       if (await file.exists()) {
         initialFilePath = file.path;
         initialContent = await file.readAsString();
+        // Register in library when opened via command line / file association
+        final entries = await LibraryService.loadEntries();
+        await LibraryService.addFile(entries, initialFilePath, markAsOpened: true);
       }
     } catch (_) {}
   }
@@ -53,6 +58,9 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
 
   @override
   Widget build(BuildContext context) {
+    // If launched with a file argument, go directly to AppShell
+    final hasInitialFile = widget.initialFilePath != null;
+
     return MaterialApp(
       title: 'Tsuzuri',
       debugShowCheckedModeBanner: false,
@@ -60,12 +68,42 @@ class _TsuzuriAppState extends State<TsuzuriApp> {
       themeMode: _themeMode,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.amoledDarkTheme,
-      home: AppShell(
-        currentThemeMode: _themeMode,
-        onThemeChanged: _setThemeMode,
-        initialFilePath: widget.initialFilePath,
-        initialContent: widget.initialContent,
-      ),
+      initialRoute: hasInitialFile ? '/document' : '/',
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/':
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => LibraryScreen(
+                currentThemeMode: _themeMode,
+                onThemeChanged: _setThemeMode,
+              ),
+            );
+          case '/document':
+            // Accept file path from either navigation arguments or initial launch
+            final filePath = settings.arguments as String? ?? widget.initialFilePath;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => AppShell(
+                currentThemeMode: _themeMode,
+                onThemeChanged: _setThemeMode,
+                initialFilePath: filePath,
+                initialContent: filePath == widget.initialFilePath
+                    ? widget.initialContent
+                    : null,
+                showBackToLibrary: true,
+              ),
+            );
+          default:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => LibraryScreen(
+                currentThemeMode: _themeMode,
+                onThemeChanged: _setThemeMode,
+              ),
+            );
+        }
+      },
     );
   }
 }

@@ -7,6 +7,7 @@ import '../models/document_state.dart';
 import '../parser/toc_parser.dart';
 import '../renderer/reader_view.dart';
 import '../services/file_service.dart';
+import '../services/library_service.dart';
 import 'about_dialog.dart';
 import 'actions_sheet.dart';
 import 'app_header.dart';
@@ -25,6 +26,7 @@ class AppShell extends StatefulWidget {
   final ValueChanged<ThemeMode> onThemeChanged;
   final String? initialFilePath;
   final String? initialContent;
+  final bool showBackToLibrary;
 
   const AppShell({
     super.key,
@@ -32,6 +34,7 @@ class AppShell extends StatefulWidget {
     required this.onThemeChanged,
     this.initialFilePath,
     this.initialContent,
+    this.showBackToLibrary = false,
   });
 
   @override
@@ -76,6 +79,33 @@ class _AppShellState extends State<AppShell> {
     );
     _editorController = TextEditingController(text: content);
     _updateToc(content);
+
+    // If we have a file path but no pre-loaded content, load from disk
+    if (widget.initialFilePath != null && widget.initialContent == null) {
+      _loadFileFromPath(widget.initialFilePath!);
+    }
+  }
+
+  /// Loads file content from disk when navigating from the library.
+  Future<void> _loadFileFromPath(String filePath) async {
+    try {
+      final content = await FileService.readFile(filePath);
+      if (mounted) {
+        setState(() {
+          _document = DocumentState(
+            filePath: filePath,
+            content: content,
+            savedSnapshot: content,
+          );
+          _editorController.text = content;
+          _updateToc(content);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('Error loading file: $e', isError: true);
+      }
+    }
   }
 
   @override
@@ -178,6 +208,9 @@ class _AppShellState extends State<AppShell> {
           _editorController.text = content;
           _updateToc(content);
         });
+        // Register in library
+        final entries = await LibraryService.loadEntries();
+        await LibraryService.addFile(entries, filePath, markAsOpened: true);
         _showToast('Opened ${_document.title}.');
       }
     } catch (e) {
@@ -351,6 +384,23 @@ class _AppShellState extends State<AppShell> {
                 : null,
             onHideTooltip: (!kIsWeb && Platform.isLinux && !_isEditorMode)
                 ? () => _readerKey.currentState?.hideTooltip()
+                : null,
+            leading: widget.showBackToLibrary
+                ? IconButton(
+                    tooltip: 'Back to Library',
+                    icon: const Icon(Icons.arrow_back, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () async {
+                      if (_document.isDirty) {
+                        final proceed = await _confirmDiscardUnsavedChanges();
+                        if (!proceed) return;
+                      }
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  )
                 : null,
           ),
           endDrawer: TocDrawer(
