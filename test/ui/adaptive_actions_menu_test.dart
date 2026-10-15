@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsuzuri/main.dart';
+import 'package:tsuzuri/src/parser/toc_parser.dart';
 import 'package:tsuzuri/src/renderer/reader_view.dart';
 import 'package:tsuzuri/src/ui/actions_sheet.dart';
 
@@ -230,6 +231,27 @@ void main() {
       // TOC drawer is closed -> rightInset must return to 0.0
       readerWidget = tester.widget<ReaderView>(find.byType(ReaderView));
       expect(readerWidget.rightInset, 0.0);
+    });
+
+    testWidgets('ReaderView toggleTocPanel and closeTocPanel methods execute without error',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const TsuzuriApp(initialRoute: '/document'));
+      await tester.pump(const Duration(milliseconds: 150));
+
+      final readerState = tester.state<ReaderViewState>(find.byType(ReaderView));
+      // toggleTocPanel and closeTocPanel execute cleanly
+      await readerState.toggleTocPanel([
+        const TocItem(level: 1, text: 'Heading 1', slug: 'heading-1', lineNumber: 1),
+        const TocItem(level: 2, text: 'Heading 2', slug: 'heading-2', lineNumber: 5),
+      ]);
+      await readerState.closeTocPanel();
     });
   });
 }

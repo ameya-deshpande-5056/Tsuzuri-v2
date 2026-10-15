@@ -154,10 +154,15 @@ class _AppShellState extends State<AppShell> {
         Platform.isLinux &&
         !_isEditorMode &&
         (currentReader?.hasActiveController ?? false)) {
-      currentReader?.openTocPanel(_tocItems);
+      currentReader?.toggleTocPanel(_tocItems);
       return;
     }
-    _scaffoldKey.currentState?.openEndDrawer();
+
+    if (_scaffoldKey.currentState?.isEndDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+    } else {
+      _scaffoldKey.currentState?.openEndDrawer();
+    }
   }
 
   Future<void> _handleSave() async {

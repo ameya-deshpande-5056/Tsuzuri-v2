@@ -738,6 +738,8 @@
             btn.classList.toggle('active', btn.getAttribute('data-theme-mode') === opts.theme);
           });
         }
+        window.closeTocPanel();
+        window.closeAboutDialog();
         popover.classList.add('open');
         popover.setAttribute('aria-hidden', 'false');
         backdrop.classList.add('open');
@@ -807,6 +809,9 @@
         var container = document.getElementById('toc-items-container');
         if (!panel || !backdrop || !container) return;
 
+        window.closeActionsPopover();
+        window.closeAboutDialog();
+
         var items = [];
         try {
           items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : (itemsJson || []);
@@ -849,6 +854,15 @@
         if (backdrop) {
           backdrop.classList.remove('open');
           backdrop.setAttribute('aria-hidden', 'true');
+        }
+      };
+
+      window.toggleTocPanel = function(itemsJson) {
+        var panel = document.getElementById('toc-panel');
+        if (panel && panel.classList.contains('open')) {
+          window.closeTocPanel();
+        } else {
+          window.openTocPanel(itemsJson);
         }
       };
 

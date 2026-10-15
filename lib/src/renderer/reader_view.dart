@@ -226,6 +226,21 @@ class ReaderViewState extends State<ReaderView> {
     } catch (_) {}
   }
 
+  /// Toggles the Table of Contents slide-in overlay panel in Reader view (show or hide).
+  Future<void> toggleTocPanel(List<TocItem> items) async {
+    if (_controller == null) return;
+    try {
+      final jsonList = items.map((item) => {
+        'level': item.level,
+        'text': item.text,
+        'slug': item.slug,
+      }).toList();
+      final jsonStr = jsonEncode(jsonList);
+      final escaped = _escapeJs(jsonStr);
+      await _controller?.runJavaScript('window.toggleTocPanel("$escaped");');
+    } catch (_) {}
+  }
+
   /// Closes the Table of Contents slide-in overlay panel in Reader view.
   Future<void> closeTocPanel() async {
     if (_controller == null) return;

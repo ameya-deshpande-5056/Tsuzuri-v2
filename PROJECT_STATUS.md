@@ -79,7 +79,7 @@
 
 ## 5. Verification Records
 - `flutter analyze`: Passed with 0 issues found.
-- `flutter test`: All 79 unit, widget, responsive, and regression tests passed.
+- `flutter test`: All 80 unit, widget, responsive, and regression tests passed.
 - `flutter build linux --release`: `✓ Built build/linux/x64/release/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build linux --debug`: `✓ Built build/linux/x64/debug/bundle/tsuzuri` (verified crash-free execution on Linux host).
 - `flutter build web --release`: `✓ Built build/web`.
